@@ -1,7 +1,7 @@
 const { FireModel } = require("air-firebase-v2");
 
 async function firemodelTest() {
-  const model = new FireModel("test_collection");
+  const model = new FireModel();
   const data = { name: "Test User", age: 30 };
   const createdData = await model.create(data);
   const docData = await model.get(createdData.id);
