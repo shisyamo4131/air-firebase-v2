@@ -1,0 +1,26 @@
+{
+  "name": "air-firebase-v2",
+  "version": "1.0.0",
+  "main": "src/server.js",
+  "browser": "src/client.js",
+  "scripts": {
+    "test": "jest",
+    "test:local": "cross-env NODE_ENV=local jest"
+  },
+  "author": "shisyamo4131",
+  "license": "ISC",
+  "description": "",
+  "peerDependencies": {
+    "firebase": "^10.0.0",
+    "firebase-admin": "^11.0.0"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "firebase": "^10.0.0",
+    "firebase-admin": "^11.0.0",
+    "jest": "^29.7.0"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7"
+  }
+}

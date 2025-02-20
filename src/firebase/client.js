@@ -1,0 +1,95 @@
+/**
+ * アプリ側の Firebase アプリケーションを初期化し、各種サービスへのインスタンスを提供します。
+ * Firebase に接続するための環境変数は .env ファイルから読み込みます。
+ */
+
+const dotenv = require("dotenv");
+const fs = require("fs");
+
+// `NODE_ENV` に応じた `.env` ファイルを読み込む
+const envFile = `.env.${process.env.NODE_ENV || "local"}`;
+dotenv.config({ path: fs.existsSync(envFile) ? envFile : ".env" });
+
+if (!fs.existsSync(envFile) && !fs.existsSync(".env")) {
+  console.error(
+    `Error: No environment configuration file found (${envFile} or .env).`
+  );
+  process.exit(1);
+} else {
+  console.log(`Loaded environment variables from ${envFile}`);
+}
+
+const { initializeApp, getApps, deleteApp } = require("firebase/app");
+const {
+  getFirestore,
+  connectFirestoreEmulator,
+} = require("firebase/firestore");
+const { getAuth, connectAuthEmulator } = require("firebase/auth");
+const { getStorage, connectStorageEmulator } = require("firebase/storage");
+const { getDatabase, connectDatabaseEmulator } = require("firebase/database");
+const {
+  getFunctions,
+  connectFunctionsEmulator,
+} = require("firebase/functions");
+
+// Firebase 設定を環境変数から取得
+const firebaseConfig = {
+  apiKey: process.env.API_KEY,
+  authDomain: process.env.AUTH_DOMAIN,
+  projectId: process.env.PROJECT_ID,
+  storageBucket: process.env.STORAGE_BUCKET,
+  messagingSenderId: process.env.MESSAGING_SENDER_ID,
+  appId: process.env.APP_ID,
+  databaseURL: process.env.DATABASE_URL || "",
+  vapidKey: process.env.VAPID_KEY || "",
+};
+
+// Cloud Functions のリージョン設定
+const region = process.env.REGION || "us-central1";
+
+// Firebase の初期化
+const app = getApps()[0] || initializeApp(firebaseConfig);
+
+// Firebase サービスのインスタンスを取得
+const firestore = getFirestore(app);
+const auth = getAuth(app);
+const storage = getStorage(app);
+const database = getDatabase(app);
+const functions = getFunctions(app, region);
+
+// Debug ログの制御
+const DEBUG = process.env.DEBUG === "true";
+
+// `local` 環境の場合は Firebase Emulator に接続
+if (process.env.NODE_ENV === "local") {
+  if (DEBUG) console.log("Using Firebase Emulators...");
+
+  connectFirestoreEmulator(firestore, "localhost", 8080);
+  connectAuthEmulator(auth, "http://127.0.0.1:9099");
+  connectStorageEmulator(storage, "localhost", 9199);
+  connectDatabaseEmulator(database, "localhost", 9000);
+  connectFunctionsEmulator(functions, "localhost", 5001);
+
+  if (DEBUG) console.log("Connected to Firebase Emulators.");
+}
+
+// Firebase アプリの削除関数（Jest テスト用）
+const terminateFirebase = async () => {
+  if (getApps().length > 0) {
+    await deleteApp(app);
+    if (DEBUG)
+      console.log(
+        "Firebase app deleted successfully in Jest test environment."
+      );
+  }
+};
+
+module.exports = {
+  app,
+  auth,
+  database,
+  firestore,
+  functions,
+  storage,
+  terminateFirebase,
+};
