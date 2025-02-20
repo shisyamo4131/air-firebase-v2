@@ -18,5 +18,5 @@
 //   response.send("Hello from Firebase!");
 // });
 
-const { firemodelTest } = require("./tests/firemodel.test");
+const { firemodelTest } = require("./tests/firemodel-test");
 return firemodelTest();

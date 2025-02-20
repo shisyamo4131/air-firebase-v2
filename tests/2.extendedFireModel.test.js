@@ -1,13 +1,13 @@
 const { FireModel } = require("../src/client");
 const { terminateFirebase } = require("../src/firebase/client");
 
-describe("FireModel クライアントテスト", () => {
-  // beforeAll(() => {
-  //   FireModel.setAdapter(ClientAdapter);
-  // });
+class Customer extends FireModel {
+  static collectionPath = "Customers";
+}
 
+describe("FireModel を継承したサブクラスの動作を検証します。", () => {
   test("データを作成できる", async () => {
-    const model = new FireModel("test_collection");
+    const model = new Customer();
     const data = { name: "Test User", age: 30 };
 
     const createdData = await model.create(data);
@@ -16,7 +16,7 @@ describe("FireModel クライアントテスト", () => {
   });
 
   test("データを取得できる", async () => {
-    const model = new FireModel("test_collection");
+    const model = new Customer();
     const createdData = await model.create({ name: "John Doe", age: 25 });
 
     const retrievedData = await model.get(createdData.id);
@@ -25,7 +25,7 @@ describe("FireModel クライアントテスト", () => {
   });
 
   test("データを更新できる", async () => {
-    const model = new FireModel("test_collection");
+    const model = new Customer();
     const createdData = await model.create({ name: "Jane Doe", age: 20 });
 
     await model.update(createdData.id, { age: 22 });
@@ -34,7 +34,7 @@ describe("FireModel クライアントテスト", () => {
   });
 
   test("データを削除できる", async () => {
-    const model = new FireModel("test_collection");
+    const model = new Customer();
     const createdData = await model.create({ name: "Test User", age: 30 });
 
     await model.delete(createdData.id);

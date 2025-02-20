@@ -13,26 +13,26 @@ const {
 const { firestore } = require("../firebase/client");
 
 class ClientAdapter {
-  async create(collectionName, data) {
-    const colRef = collection(firestore, collectionName);
+  async create(collectionPath, data) {
+    const colRef = collection(firestore, collectionPath);
     const docRef = await addDoc(colRef, data);
     return { id: docRef.id, ...data };
   }
 
-  async get(collectionName, id) {
-    const docRef = doc(firestore, collectionName, id);
+  async get(collectionPath, id) {
+    const docRef = doc(firestore, collectionPath, id);
     const docSnap = await getDoc(docRef);
     return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } : null;
   }
 
-  async update(collectionName, id, data) {
-    const docRef = doc(firestore, collectionName, id);
+  async update(collectionPath, id, data) {
+    const docRef = doc(firestore, collectionPath, id);
     await updateDoc(docRef, data);
     return { id, ...data };
   }
 
-  async delete(collectionName, id) {
-    const docRef = doc(firestore, collectionName, id);
+  async delete(collectionPath, id) {
+    const docRef = doc(firestore, collectionPath, id);
     await deleteDoc(docRef);
   }
 }
