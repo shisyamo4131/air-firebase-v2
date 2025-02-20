@@ -1,11 +1,10 @@
-const FireModel = require("../src/FireModel");
-const ClientAdapter = require("../src/adapters/ClientAdapter");
+const { FireModel } = require("../src/client");
 const { terminateFirebase } = require("../src/firebase/client");
 
 describe("FireModel クライアントテスト", () => {
-  beforeAll(() => {
-    FireModel.setAdapter(ClientAdapter);
-  });
+  // beforeAll(() => {
+  //   FireModel.setAdapter(ClientAdapter);
+  // });
 
   test("データを作成できる", async () => {
     const model = new FireModel("test_collection");
