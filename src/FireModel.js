@@ -58,12 +58,12 @@ class FireModel {
    * リアルタイムリスナーによるドキュメントの購読を開始した際の
    * リスナー用変数です。
    */
-  #listener = null;
+  _listener = null;
 
   /**
    * リアルタイムリスナーによるドキュメントの購読によって読み込まれたドキュメントの配列です。
    */
-  #docs = [];
+  _docs = [];
 
   /**
    * FireModel にアダプターをセットします。
@@ -467,6 +467,7 @@ class FireModel {
   }
 
   /**
+   * [ADAPTER]
    * Firestore にドキュメントを作成します。
    * - ドキュメントの作成は必ずトランザクション処理で実行されます。
    *   引数 transaction が与えられなかった場合、この関数内でトランザクションが生成されます。
@@ -505,6 +506,7 @@ class FireModel {
   }
 
   /**
+   * [ADAPTER]
    * 指定された ID に該当するドキュメントを Firestore から取得し、インスタンスに読み込みます。
    * - ドキュメントが存在しない場合、インスタンスのデータをリセット (`initialize(null)`) します。
    * - `transaction` が指定されている場合、トランザクションを使用して取得します。
@@ -526,6 +528,7 @@ class FireModel {
   }
 
   /**
+   * [ADAPTER]
    * Firestore から指定された ID に該当するドキュメントを取得し、新しいオブジェクトとして返します。
    * - `fetch()` はこのクラスのインスタンスにデータをセットしますが、`fetchDoc()` は新しいオブジェクトとして返します。
    * - `transaction` が指定されている場合、トランザクションを使用して取得します。
@@ -557,7 +560,7 @@ class FireModel {
    * @returns {Array<Object>} - Firestore クエリオブジェクトの配列を返します。
    * @throws {Error} - 不明なクエリタイプが指定された場合、エラーをスローします。
    */
-  #createQueries(constraints) {
+  createQueries(constraints) {
     const adapter = FireModel.getAdapter();
     return adapter.createQueries.bind(this)(constraints);
   }
@@ -573,12 +576,13 @@ class FireModel {
    * @returns {Array<Object>} - Firestore クエリオブジェクトの配列を返します。
    * @throws {Error} - `constraints` が空文字の場合、エラーをスローします。
    */
-  #createTokenMapQueries(constraints) {
+  createTokenMapQueries(constraints) {
     const adapter = FireModel.getAdapter();
     return adapter.createTokenMapQueries.bind(this)(constraints);
   }
 
   /**
+   * [ADAPTER]
    * Firestore から条件に一致するドキュメントを取得します。
    * - 引数 constraints が文字列であった場合、tokenMap による N-gram 検索が実行されます。
    *   options で追加の条件を指定可能です。
@@ -591,23 +595,12 @@ class FireModel {
    * @throws {Error} ドキュメントの取得に失敗した場合
    */
   async fetchDocs({ constraints = [], options = [] }, transaction = null) {
-    const queryConstraints = [];
-
-    // constraints の型に応じてクエリ条件を生成
-    if (typeof constraints === "string") {
-      queryConstraints.push(...this.#createTokenMapQueries(constraints));
-
-      // options で指定されたクエリ条件を追加
-      queryConstraints.push(...this.#createQueries(options));
-    } else if (Array.isArray(constraints)) {
-      queryConstraints.push(...this.#createQueries(constraints));
-    } else {
-      throw new Error(`constraints must be a string or array.`);
-    }
-
     const adapter = FireModel.getAdapter();
     try {
-      return await adapter.fetchDocs.bind(this)(queryConstraints, transaction);
+      return await adapter.fetchDocs.bind(this)(
+        { constraints, options },
+        transaction
+      );
     } catch (err) {
       adapter.logger.error(`[FireModel.js - fetchDocs] ${err.message}`);
       throw err;
@@ -615,6 +608,7 @@ class FireModel {
   }
 
   /**
+   * [ADAPTER]
    * Firestore ドキュメントを現在のプロパティ値で更新します。
    * @param {function|null} transaction - トランザクション処理を行うための関数（省略可能、デフォルトは `null`）
    * @param {function|null} callBack - サブクラス側で独自の処理を実行するための関数（省略可能、デフォルトは `null`）
@@ -649,6 +643,7 @@ class FireModel {
   }
 
   /**
+   * [ADAPTER]
    * 現在のドキュメント ID に該当するドキュメントを削除します。
    * - logicalDelete が指定されている場合、削除されたドキュメントは archive コレクションに移動されます。
    * @param {object|null} transaction - Firestoreトランザクションオブジェクト（省略可能）
@@ -670,6 +665,7 @@ class FireModel {
   }
 
   /**
+   * [ADAPTER]
    * 削除されたドキュメントをアーカイブコレクションから元のコレクションに復元します。
    * @param {string} docId - 復元するドキュメントのID
    * @returns {Promise<DocumentReference>} - 復元されたドキュメントのリファレンス
@@ -686,16 +682,19 @@ class FireModel {
   }
 
   /**
+   * [ADAPTER]
    * Firestoreのリアルタイムリスナーを解除します。
    * 現在のリスナーが存在する場合、そのリスナーを解除します。
    * @returns {void}
    */
   unsubscribe() {
-    if (this.#listener) {
-      this.#listener();
-      this.#listener = null;
+    const adapter = FireModel.getAdapter();
+    try {
+      adapter.unsubscribe.bind(this)();
+    } catch (err) {
+      adapter.logger.error(`[FireModel.js - unsubscribe] ${err.message}`);
+      throw err;
     }
-    this.#docs.splice(0);
   }
 
   /**
@@ -707,12 +706,17 @@ class FireModel {
    * @throws {Error} - ドキュメントIDが指定されていない場合にエラーをスローします
    */
   subscribe(docId = null) {
-    this.unsubscribe();
     const adapter = FireModel.getAdapter();
-    this.#listener = adapter.subscribe.bind(this)(docId);
+    try {
+      adapter.subscribe.bind(this)(docId);
+    } catch (err) {
+      adapter.logger.error(`[FireModel.js - subscribe] ${err.message}`);
+      throw err;
+    }
   }
 
   /**
+   * [ADAPTER]
    * Firestoreコレクションに対するリアルタイムリスナーを設定し、ドキュメントの変化を監視します。
    * - 引数 constraints が文字列であった場合、tokenMap による N-gram 検索が実行されます。
    *   追加の条件は options で指定可能です。
@@ -723,31 +727,12 @@ class FireModel {
    * @returns {Array<Object>} - リアルタイムで監視しているドキュメントのデータが格納された配列
    * @throws {Error} 不明なクエリタイプが指定された場合
    */
-  subscribeDocs(constraints = [], options = []) {
-    this.unsubscribe();
-    const queryConstraints = [];
-
-    // constraints の型に応じてクエリ条件を生成
-    if (typeof constraints === "string") {
-      queryConstraints.push(...this.#createTokenMapQueries(constraints));
-
-      // options で指定されたクエリ条件を追加
-      queryConstraints.push(...this.#createQueries(options));
-    } else if (Array.isArray(constraints)) {
-      queryConstraints.push(...this.#createQueries(constraints));
-    } else {
-      throw new Error(`constraints must be a string or array.`);
-    }
-
+  subscribeDocs({ constraints = [], options = [] } = {}) {
     const adapter = FireModel.getAdapter();
     try {
-      this.#listener = adapter.subscribeDocs.bind(this)(
-        queryConstraints,
-        this.#docs
-      );
-      return this.#docs;
+      return adapter.subscribeDocs.bind(this)({ constraints, options });
     } catch (err) {
-      adapter.logger.error(`[FireModel.js - fetchDocs] ${err.message}`);
+      adapter.logger.error(`[FireModel.js - subscribeDocs] ${err.message}`);
       throw err;
     }
   }

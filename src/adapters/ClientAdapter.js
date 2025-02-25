@@ -339,28 +339,42 @@ class ClientAdapter {
   /**
    * Firestore から条件に一致するドキュメントを取得します。
    * - 指定されたクエリ条件 (`constraints`) を適用して、Firestore のドキュメントを取得します。
+   * - constraints が文字列である場合、N-Gram 検索が実行されます。
+   *   options で追加の条件を指定可能です。
+   * - constraints が配列である場合、指定されたクエリ条件での検索が実行されます。
    * - 取得結果は `this.converter()` を通じてオブジェクトの配列として返します。
    * - `transaction` が指定されている場合、トランザクション内で取得します。
    * - `transaction` が `null` の場合、通常の `getDocs()` を使用します。
    *
-   * @param {Array} constraints - クエリ条件の配列です。（例: `[['where', 'age', '>=', 18], ['orderBy', 'age', 'desc']]`）
+   * @param {Array|string} constraints - クエリ条件の配列または検索用の文字列
+   * @param {Array} options - 追加のクエリ条件の配列（constraints が配列の場合は無視されます。）
    * @param {Object|null} [transaction=null] - Firestore のトランザクションオブジェクトです。（オプション）
    * @returns {Promise<Array<Object>>} - 取得したドキュメントのデータを配列として返します。
    * @throws {Error} - Firestore の取得処理に失敗した場合
    */
-  async fetchDocs(constraints = [], transaction = null) {
-    try {
-      if (!Array.isArray(constraints)) {
-        throw new Error("Constraints must be an array.");
-      }
+  async fetchDocs({ constraints = [], options = [] }, transaction = null) {
+    const queryConstraints = [];
 
+    // constraints の型に応じてクエリ条件を生成
+    if (typeof constraints === "string") {
+      queryConstraints.push(...this.createTokenMapQueries(constraints));
+
+      // options で指定されたクエリ条件を追加
+      queryConstraints.push(...this.createQueries(options));
+    } else if (Array.isArray(constraints)) {
+      queryConstraints.push(...this.createQueries(constraints));
+    } else {
+      throw new Error(`constraints must be a string or array.`);
+    }
+
+    try {
       const collectionPath = this.constructor.collectionPath;
       const colRef = collection(firestore, collectionPath).withConverter(
         this.converter()
       );
 
       // Firestore のクエリを作成
-      const queryRef = query(colRef, ...constraints);
+      const queryRef = query(colRef, ...queryConstraints);
 
       // トランザクションの有無によって取得方法を分岐
       const querySnapshot = transaction
@@ -597,6 +611,19 @@ class ClientAdapter {
   }
 
   /**
+   * Firestoreのリアルタイムリスナーを解除します。
+   * 現在のリスナーが存在する場合、そのリスナーを解除します。
+   * @returns {void}
+   */
+  unsubscribe() {
+    if (this._listener) {
+      this._listener();
+      this._listener = null;
+    }
+    this._docs.splice(0);
+  }
+
+  /**
    * Firestoreのドキュメントに対するリアルタイムリスナーを設定し、
    * 読み込んだドキュメントの内容で自身を初期化します。
    * @param {string} docId - リアルタイムリスナーを設定するドキュメントのID
@@ -604,15 +631,15 @@ class ClientAdapter {
    * @throws {Error} - ドキュメントIDが指定されていない場合にエラーをスローします
    */
   subscribe(docId) {
-    if (!docId) {
-      throw new Error(`docId is required.`);
-    }
+    this.unsubscribe();
+
+    if (!docId) throw new Error(`docId is required.`);
 
     try {
       const collectionPath = this.constructor.collectionPath;
       const colRef = collection(firestore, collectionPath);
       const docRef = doc(colRef, docId);
-      return onSnapshot(docRef, (docSnapshot) => {
+      onSnapshot(docRef, (docSnapshot) => {
         this.initialize(docSnapshot.data());
       });
     } catch (err) {
@@ -632,23 +659,41 @@ class ClientAdapter {
    * @returns {Array<Object>} - リアルタイムで監視しているドキュメントのデータが格納された配列
    * @throws {Error} 不明なクエリタイプが指定された場合
    */
-  subscribeDocs(constraints = [], docs) {
+  subscribeDocs({ constraints = [], options = [] } = {}) {
+    this.unsubscribe();
+    const queryConstraints = [];
+
+    // constraints の型に応じてクエリ条件を生成
+    if (typeof constraints === "string") {
+      queryConstraints.push(...this.createTokenMapQueries(constraints));
+
+      // options で指定されたクエリ条件を追加
+      queryConstraints.push(...this.createQueries(options));
+    } else if (Array.isArray(constraints)) {
+      queryConstraints.push(...this.createQueries(constraints));
+    } else {
+      throw new Error(`constraints must be a string or array.`);
+    }
+
     try {
       // Firestoreコレクションに対してリアルタイムリスナーを設定
       const collectionPath = this.constructor.collectionPath;
       const colRef = collection(firestore, collectionPath).withConverter(
         this.converter()
       );
-      const queryRef = query(colRef, ...constraints);
-      return onSnapshot(queryRef, (snapshot) => {
+      const queryRef = query(colRef, ...queryConstraints);
+      this._listener = onSnapshot(queryRef, (snapshot) => {
         snapshot.docChanges().forEach((change) => {
           const item = change.doc.data();
-          const index = docs.findIndex(({ docId }) => docId === item.docId);
-          if (change.type === "added") docs.push(item);
-          if (change.type === "modified") docs.splice(index, 1, item);
-          if (change.type === "removed") docs.splice(index, 1);
+          const index = this._docs.findIndex(
+            ({ docId }) => docId === item.docId
+          );
+          if (change.type === "added") this._docs.push(item);
+          if (change.type === "modified") this._docs.splice(index, 1, item);
+          if (change.type === "removed") this._docs.splice(index, 1);
         });
       });
+      return this._docs;
     } catch (err) {
       console.error(`[ClientAdapter.js - subscribeDocs] An error has occured.`);
       throw err;
