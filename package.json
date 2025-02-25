@@ -7,6 +7,11 @@
     "test": "jest",
     "test:local": "cross-env NODE_ENV=local jest"
   },
+  "jest": {
+    "setupFilesAfterEnv": [
+      "<rootDir>/jest.setup.js"
+    ]
+  },
   "author": "shisyamo4131",
   "license": "ISC",
   "description": "",
