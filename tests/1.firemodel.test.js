@@ -1,7 +1,5 @@
 const {
   doc,
-  setDoc,
-  runTransaction,
   getDoc,
   deleteDoc,
   collection,
