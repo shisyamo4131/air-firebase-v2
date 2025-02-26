@@ -58,12 +58,24 @@ class FireModel {
    * リアルタイムリスナーによるドキュメントの購読を開始した際の
    * リスナー用変数です。
    */
-  _listener = null;
+  #listener = null;
+  get listener() {
+    return this.#listener;
+  }
+  set listener(v) {
+    this.#listener = v;
+  }
 
   /**
    * リアルタイムリスナーによるドキュメントの購読によって読み込まれたドキュメントの配列です。
    */
-  _docs = [];
+  #docs = [];
+  get docs() {
+    return this.#docs;
+  }
+  set docs(v) {
+    this.#docs = v;
+  }
 
   /**
    * FireModel にアダプターをセットします。

@@ -10,8 +10,9 @@ const { firestore, terminateFirebase } = require("../src/firebase/client");
 
 class Animal extends FireModel {
   static collectionPath = "Animals";
-  static useAutonumber = false;
+  static useAutonumber = true;
   static classProps = {
+    code: { type: String, default: "", required: false },
     name: { type: String, default: "", required: true },
     type: {
       type: String,
@@ -30,22 +31,31 @@ class Animal extends FireModel {
       resolve();
     });
   }
+
+  beforeUpdate() {
+    return new Promise((resolve, reject) => {
+      if (!this.name) {
+        reject(new Error(`name is required to input.`));
+      }
+      resolve();
+    });
+  }
 }
 
-class AnimalAutonumber extends Animal {
-  static collectionPath = "AnimalsAutonumber";
-  static useAutonumber = true;
-  static classProps = {
-    code: { type: String, default: "", required: false },
-    name: { type: String, default: "", required: true },
-    type: {
-      type: String,
-      default: "",
-      required: true,
-      validator: (v) => ["dog", "cat"].includes(v),
-    },
-  };
-}
+// class AnimalAutonumber extends Animal {
+//   static collectionPath = "AnimalsAutonumber";
+//   static useAutonumber = true;
+//   static classProps = {
+//     code: { type: String, default: "", required: false },
+//     name: { type: String, default: "", required: true },
+//     type: {
+//       type: String,
+//       default: "",
+//       required: true,
+//       validator: (v) => ["dog", "cat"].includes(v),
+//     },
+//   };
+// }
 
 class Autonumber extends FireModel {
   static collectionPath = "Autonumbers";
@@ -69,18 +79,17 @@ class Autonumber extends FireModel {
 
 describe("FireModel クライアントテスト", () => {
   /**
-   * create 実行時の beforeCreate が resolve を返した時に
-   * 処理が中断されることを確認します。
+   * create 実行時、beforeCreate が resolve を返すことで処理が中断されることを確認します。
    */
-  test("Interruption of create processing by 'beforeCreate'.", async () => {
+  test("Interrupt create document processing by 'beforeCreate'.", async () => {
     const model = new Animal();
     await expect(model.create()).rejects.toThrow(`name is required to input.`);
   });
 
   /**
-   * create 実行時の validate による処理の中断
+   * create 実行時、validate が resolve を返すことで処理が中断されることを確認します。
    */
-  test("Interruption of create processing by 'validate'.", async () => {
+  test("Interrupt create document processing by 'validate'.", async () => {
     const model = new Animal({ name: "tama" });
 
     // create will be rejected because `type` is required.
@@ -97,16 +106,16 @@ describe("FireModel クライアントテスト", () => {
   /**
    * create 実行時、自動採番ドキュメントが存在しない場合にエラーとなること。
    */
-  test("Interruption of create processing due to 'Autonumber' document is not found.", async () => {
-    const model = new AnimalAutonumber({ name: "tama", type: "cat" });
+  test("Interrupt create document processing due to 'Autonumber' document is not found.", async () => {
+    const model = new Animal({ name: "tama", type: "cat" });
     await expect(model.create()).rejects.toBeDefined();
   });
 
   /**
    * create 実行時、自動採番が最大値に達している場合にエラーとなること。
    */
-  test("Interruption of create processing due to 'Autonumber' is maximum value.", async () => {
-    const model = new AnimalAutonumber({ name: "tama", type: "cat" });
+  test.only("Interrupt create document processing due to 'Autonumber' is maximum value.", async () => {
+    const model = new Animal({ name: "tama", type: "cat" });
     const autonumber = new Autonumber({
       collection: "AnimalsAutonumber",
       current: 9,

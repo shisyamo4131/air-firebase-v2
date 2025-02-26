@@ -616,11 +616,11 @@ class ClientAdapter {
    * @returns {void}
    */
   unsubscribe() {
-    if (this._listener) {
-      this._listener();
-      this._listener = null;
+    if (this.listener) {
+      this.listener();
+      this.listener = null;
     }
-    this._docs.splice(0);
+    this.docs.splice(0);
   }
 
   /**
@@ -682,15 +682,15 @@ class ClientAdapter {
         this.converter()
       );
       const queryRef = query(colRef, ...queryConstraints);
-      this._listener = onSnapshot(queryRef, (snapshot) => {
+      this.listener = onSnapshot(queryRef, (snapshot) => {
         snapshot.docChanges().forEach((change) => {
           const item = change.doc.data();
-          const index = this._docs.findIndex(
+          const index = this.docs.findIndex(
             ({ docId }) => docId === item.docId
           );
-          if (change.type === "added") this._docs.push(item);
-          if (change.type === "modified") this._docs.splice(index, 1, item);
-          if (change.type === "removed") this._docs.splice(index, 1);
+          if (change.type === "added") this.docs.push(item);
+          if (change.type === "modified") this.docs.splice(index, 1, item);
+          if (change.type === "removed") this.docs.splice(index, 1);
         });
       });
       return this._docs;
