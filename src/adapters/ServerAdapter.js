@@ -37,7 +37,7 @@ class ServerAdapter {
 
       // Firestore のトランザクションスコープ内でドキュメントを取得
       const docSnap = await transaction.get(docRef);
-      if (!docSnap.exists()) {
+      if (!docSnap.exists) {
         throw new Error(
           `Could not find Autonumber document. collection: ${collectionPath}`
         );
@@ -178,9 +178,9 @@ class ServerAdapter {
         : await docRef.get();
 
       // ドキュメントが存在する場合はインスタンスにデータをセットし、存在しない場合はリセットします。
-      this.initialize(docSnap.exists() ? docSnap.data() : null);
+      this.initialize(docSnap.exists ? docSnap.data() : null);
 
-      return docSnap.exists();
+      return docSnap.exists;
     } catch (err) {
       console.error("[ServerAdapter.js - fetch] An error has occurred:", err);
       throw err;
@@ -211,7 +211,7 @@ class ServerAdapter {
         ? await transaction.get(docRef)
         : await docRef.get();
 
-      return docSnap.exists() ? docSnap.data() : null;
+      return docSnap.exists ? docSnap.data() : null;
     } catch (err) {
       console.error(
         "[ServerAdapter.js - fetchDoc] An error has occurred:",
@@ -336,9 +336,8 @@ class ServerAdapter {
    */
   async fetchDocs({ constraints = [], options = [] }, transaction = null) {
     const queryConstraints = [];
-
     // constraints は配列でなければエラー
-    if (!constraints || Array.isArray(constraints)) {
+    if (!constraints || !Array.isArray(constraints)) {
       throw new Error(
         `constraints must be an array. String parameter is not allowed on server side.`
       );
@@ -571,7 +570,7 @@ class ServerAdapter {
         // 論理削除区分が true の場合はドキュメントを archive に移動
         if (this.constructor.logicalDelete) {
           const sourceDocSnap = await txn.get(docRef);
-          if (!sourceDocSnap.exists()) {
+          if (!sourceDocSnap.exists) {
             throw new Error(
               `The document to be deleted did not exist. The document ID is ${this.docId}.`
             );
@@ -617,7 +616,7 @@ class ServerAdapter {
       const archiveColRef = firestore.collection(archivePath);
       const archiveDocRef = archiveColRef.doc(docId);
       const docSnapshot = await archiveDocRef.get();
-      if (!docSnapshot.exists()) {
+      if (!docSnapshot.exists) {
         throw new Error(
           `Specified document is not found at ${collectionPath} collection. docId: ${docId}`
         );
