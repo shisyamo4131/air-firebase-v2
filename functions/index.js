@@ -17,6 +17,3 @@
 //   logger.info("Hello logs!", {structuredData: true});
 //   response.send("Hello from Firebase!");
 // });
-
-const { firemodelTest } = require("./tests/firemodel-test");
-return firemodelTest();
