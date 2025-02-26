@@ -5,12 +5,8 @@
   "browser": "src/client.js",
   "scripts": {
     "test": "jest",
-    "test:local": "cross-env NODE_ENV=local jest"
-  },
-  "jest": {
-    "setupFilesAfterEnv": [
-      "<rootDir>/jest.setup.js"
-    ]
+    "test:local": "cross-env NODE_ENV=local jest",
+    "test:server": "cd functions && jest"
   },
   "author": "shisyamo4131",
   "license": "ISC",
