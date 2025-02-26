@@ -419,31 +419,32 @@ class ClientAdapter {
       await this.beforeUpdate();
       this.validate();
 
-      // 更新準備
-      this.updatedAt = new Date();
-      this.uid = auth?.currentUser?.uid || "unknown";
-
       /**
        * update 関数内で使用するトランザクション処理
        * @param {Object} txn - Firestore のトランザクションオブジェクト
        */
       const performTransaction = async (txn) => {
+        const collectionPath = this.constructor.collectionPath;
+        const colRef = collection(firestore, collectionPath).withConverter(
+          this.converter()
+        );
+        const docRef = doc(colRef, this.docId);
+
+        // 更新準備
+        this.updatedAt = new Date();
+        this.uid = auth?.currentUser?.uid || "unknown";
+
         txn.set(docRef, this);
         if (callBack) await callBack(txn);
+        return docRef;
       };
 
-      const collectionPath = this.constructor.collectionPath;
-      const colRef = collection(firestore, collectionPath).withConverter(
-        this.converter()
-      );
-      const docRef = doc(colRef, this.docId);
+      // トランザクションを実行して作成したドキュメントへの参照を取得
+      const docRef = transaction
+        ? await performTransaction(transaction)
+        : await runTransaction(firestore, performTransaction);
 
-      // ドキュメントの更新処理
-      if (transaction) {
-        await performTransaction(transaction);
-      } else {
-        await runTransaction(firestore, performTransaction);
-      }
+      return docRef;
     } catch (err) {
       console.error(`[ClientAdapter.js - update] An error has occured.`);
       throw err;

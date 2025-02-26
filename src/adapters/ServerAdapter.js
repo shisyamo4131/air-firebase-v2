@@ -447,31 +447,32 @@ class ServerAdapter {
       await this.beforeUpdate();
       this.validate();
 
-      // 更新準備
-      this.updatedAt = new Date();
-      this.uid = "cloud functions";
-
       /**
        * update 関数内で使用するトランザクション処理
        * @param {Object} txn - Firestore のトランザクションオブジェクト
        */
       const performTransaction = async (txn) => {
+        const collectionPath = this.constructor.collectionPath;
+        const colRef = firestore
+          .collection(collectionPath)
+          .withConverter(this.converter());
+        const docRef = colRef.doc(this.docId);
+
+        // 更新準備
+        this.updatedAt = new Date();
+        this.uid = "cloud functions";
+
         txn.set(docRef, this);
         if (callBack) await callBack(txn);
+        return docRef;
       };
 
-      const collectionPath = this.constructor.collectionPath;
-      const colRef = firestore
-        .collection(collectionPath)
-        .withConverter(this.converter());
-      const docRef = colRef.doc(this.docId);
+      // トランザクションを実行して作成したドキュメントへの参照を取得
+      const docRef = transaction
+        ? await performTransaction(transaction)
+        : await firestore.runTransaction(performTransaction);
 
-      // ドキュメントの更新処理
-      if (transaction) {
-        await performTransaction(transaction);
-      } else {
-        await firestore.runTransaction(performTransaction);
-      }
+      return docRef;
     } catch (err) {
       console.error(`[ServerAdapter.js - update] An error has occured.`);
       throw err;
