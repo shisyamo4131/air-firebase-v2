@@ -739,10 +739,10 @@ class FireModel {
    * @returns {Array<Object>} - リアルタイムで監視しているドキュメントのデータが格納された配列
    * @throws {Error} 不明なクエリタイプが指定された場合
    */
-  subscribeDocs({ constraints = [], options = [] } = {}) {
+  subscribeDocs(constraints = [], options = []) {
     const adapter = FireModel.getAdapter();
     try {
-      return adapter.subscribeDocs.bind(this)({ constraints, options });
+      return adapter.subscribeDocs.bind(this)(constraints, options);
     } catch (err) {
       adapter.logger.error(`[FireModel.js - subscribeDocs] ${err.message}`);
       throw err;

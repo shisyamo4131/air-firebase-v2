@@ -35,14 +35,14 @@ class ClientAdapter {
    *
    * @param {Object} transaction - Firestore のトランザクションオブジェクト（必須）
    * @returns {Promise<Function>} - Firestore の `current` 値を更新するための関数
+   * @throws {Error} - `transaction` が与えられていない場合
    * @throws {Error} - `Autonumbers` コレクションに対象コレクションのドキュメントが存在しない場合
    * @throws {Error} - 採番が無効化されている (`status: false`) 場合
    * @throws {Error} - 採番の最大値 (`10^length - 1`) に達した場合
    */
   async setAutonumber(transaction) {
-    if (!transaction) {
-      throw new Error("transaction is required.");
-    }
+    // transaction が指定されていなければエラーをスロー
+    if (!transaction) throw new Error("transaction is required.");
 
     try {
       const collectionPath = this.constructor.collectionPath;
@@ -102,7 +102,7 @@ class ClientAdapter {
    * @param {boolean} [args.useAutonumber=true] - `true` の場合、自動採番を実行します。
    * @param {Object|null} [args.transaction] - Firestore のトランザクションオブジェクト
    * @param {function|null} [args.callBack] - ドキュメント作成後に実行するコールバック関数です。
-   * @returns {Promise<DocumentReference>} - 作成されたドキュメントの参照を返します。
+   * @returns {Promise<DocumentReference|null>} - 作成されたドキュメントの参照を返します。
    * @throws {Error} - `callBack` が関数でない場合はエラーをスローします。
    * @throws {Error} - Firestore への書き込みに失敗した場合はエラーをスローします。
    */
@@ -120,18 +120,6 @@ class ClientAdapter {
     try {
       await this.beforeCreate();
       this.validate();
-      // ドキュメントの参照を取得
-      const collectionPath = this.constructor.collectionPath;
-      const colRef = collection(firestore, collectionPath).withConverter(
-        this.converter()
-      );
-      const docRef = docId ? doc(colRef, docId) : doc(colRef);
-
-      // FireModel の既定プロパティを編集
-      this.docId = docRef.id;
-      this.createdAt = new Date();
-      this.updatedAt = new Date();
-      this.uid = auth?.currentUser?.uid || "unknown";
 
       /**
        * create 関数内で使用するトランザクション処理
@@ -142,25 +130,33 @@ class ClientAdapter {
           this.constructor.useAutonumber && useAutonumber
             ? await this.setAutonumber(txn)
             : null;
+
+        // ドキュメントの参照を取得
+        const collectionPath = this.constructor.collectionPath;
+        const colRef = collection(firestore, collectionPath).withConverter(
+          this.converter()
+        );
+        const docRef = docId ? doc(colRef, docId) : doc(colRef);
+
+        // FireModel の既定プロパティを編集
+        this.docId = docRef.id;
+        this.createdAt = new Date();
+        this.updatedAt = new Date();
+        this.uid = auth?.currentUser?.uid || "unknown";
         txn.set(docRef, this);
         if (updateAutonumber) await updateAutonumber();
         if (callBack) await callBack(txn);
+        return docRef;
       };
 
-      // transaction が指定されていれば、そのトランザクションを使用して処理
-      if (transaction) {
-        await performTransaction(transaction);
-      }
-
-      // transaction が指定されていなければ、自前でトランザクション処理
-      else {
-        await runTransaction(firestore, performTransaction);
-      }
-
+      // トランザクションを実行して作成したドキュメントへの参照を取得
+      const docRef = transaction
+        ? await performTransaction(transaction)
+        : await runTransaction(firestore, performTransaction);
       // ドキュメントへの参照を返す
       return docRef;
     } catch (err) {
-      console.error(`[ClientAdapter.js - create] An error has occured.`);
+      console.error(`[ClientAdapter.js - create] An error has occured.`, err);
       throw err;
     }
   }
@@ -659,7 +655,7 @@ class ClientAdapter {
    * @returns {Array<Object>} - リアルタイムで監視しているドキュメントのデータが格納された配列
    * @throws {Error} 不明なクエリタイプが指定された場合
    */
-  subscribeDocs({ constraints = [], options = [] } = {}) {
+  subscribeDocs(constraints = [], options = []) {
     this.unsubscribe();
     const queryConstraints = [];
 
@@ -693,7 +689,7 @@ class ClientAdapter {
           if (change.type === "removed") this.docs.splice(index, 1);
         });
       });
-      return this._docs;
+      return this.docs;
     } catch (err) {
       console.error(`[ClientAdapter.js - subscribeDocs] An error has occured.`);
       throw err;

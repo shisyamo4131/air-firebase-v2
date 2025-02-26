@@ -107,18 +107,6 @@ class ServerAdapter {
     try {
       await this.beforeCreate();
       this.validate();
-      // ドキュメントの参照を取得
-      const collectionPath = this.constructor.collectionPath;
-      const colRef = firestore
-        .collection(collectionPath)
-        .withConverter(this.converter());
-      const docRef = docId ? colRef.doc(docId) : colRef.doc();
-
-      // FireModel の既定プロパティを編集
-      this.docId = docRef.id;
-      this.createdAt = new Date();
-      this.updatedAt = new Date();
-      this.uid = "cloud functions";
 
       /**
        * create 関数内で使用するトランザクション処理
@@ -129,25 +117,34 @@ class ServerAdapter {
           this.constructor.useAutonumber && useAutonumber
             ? await this.setAutonumber(txn)
             : null;
+
+        // ドキュメントの参照を取得
+        const collectionPath = this.constructor.collectionPath;
+        const colRef = firestore
+          .collection(collectionPath)
+          .withConverter(this.converter());
+        const docRef = docId ? colRef.doc(docId) : colRef.doc();
+
+        // FireModel の既定プロパティを編集
+        this.docId = docRef.id;
+        this.createdAt = new Date();
+        this.updatedAt = new Date();
+        this.uid = "cloud functions";
         txn.set(docRef, this);
         if (updateAutonumber) await updateAutonumber();
         if (callBack) await callBack(txn);
+        return docRef;
       };
 
-      // transaction が指定されていれば、そのトランザクションを使用して処理
-      if (transaction) {
-        await performTransaction(transaction);
-      }
-
-      // transaction が指定されていなければ、自前でトランザクション処理
-      else {
-        await firestore.runTransaction(performTransaction);
-      }
+      // トランザクションを実行して作成したドキュメントへの参照を取得
+      const docRef = transaction
+        ? await performTransaction(transaction)
+        : await firestore.runTransaction(performTransaction);
 
       // ドキュメントへの参照を返す
       return docRef;
     } catch (err) {
-      console.error(`[ServerAdapter.js - create] An error has occured.`);
+      console.error(`[ServerAdapter.js - create] An error has occured.`, err);
       throw err;
     }
   }

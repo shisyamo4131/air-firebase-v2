@@ -10,7 +10,7 @@ const { firestore, terminateFirebase } = require("../src/firebase/client");
 
 class Animal extends FireModel {
   static collectionPath = "Animals";
-  static useAutonumber = true;
+  static useAutonumber = false;
   static classProps = {
     code: { type: String, default: "", required: false },
     name: { type: String, default: "", required: true },
@@ -42,20 +42,20 @@ class Animal extends FireModel {
   }
 }
 
-// class AnimalAutonumber extends Animal {
-//   static collectionPath = "AnimalsAutonumber";
-//   static useAutonumber = true;
-//   static classProps = {
-//     code: { type: String, default: "", required: false },
-//     name: { type: String, default: "", required: true },
-//     type: {
-//       type: String,
-//       default: "",
-//       required: true,
-//       validator: (v) => ["dog", "cat"].includes(v),
-//     },
-//   };
-// }
+class AnimalAutonumber extends Animal {
+  static collectionPath = "AnimalsAutonumber";
+  static useAutonumber = true;
+  static classProps = {
+    code: { type: String, default: "", required: false },
+    name: { type: String, default: "", required: true },
+    type: {
+      type: String,
+      default: "",
+      required: true,
+      validator: (v) => ["dog", "cat"].includes(v),
+    },
+  };
+}
 
 class Autonumber extends FireModel {
   static collectionPath = "Autonumbers";
@@ -107,15 +107,15 @@ describe("FireModel クライアントテスト", () => {
    * create 実行時、自動採番ドキュメントが存在しない場合にエラーとなること。
    */
   test("Interrupt create document processing due to 'Autonumber' document is not found.", async () => {
-    const model = new Animal({ name: "tama", type: "cat" });
+    const model = new AnimalAutonumber({ name: "tama", type: "cat" });
     await expect(model.create()).rejects.toBeDefined();
   });
 
   /**
    * create 実行時、自動採番が最大値に達している場合にエラーとなること。
    */
-  test.only("Interrupt create document processing due to 'Autonumber' is maximum value.", async () => {
-    const model = new Animal({ name: "tama", type: "cat" });
+  test("Interrupt create document processing due to 'Autonumber' is maximum value.", async () => {
+    const model = new AnimalAutonumber({ name: "tama", type: "cat" });
     const autonumber = new Autonumber({
       collection: "AnimalsAutonumber",
       current: 9,
@@ -334,36 +334,87 @@ describe("FireModel クライアントテスト", () => {
    * subscribe の動作を確認します。
    */
   test("subscribe document.", async () => {
-    try {
-      const model = new Animal({ name: "mike", type: "cat" });
-      const docRef = await model.create();
-      const otherModel = new Animal();
-      otherModel.subscribe(docRef.id);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      expect(otherModel.name).toBe("mike");
-      otherModel.unsubscribe();
-      await deleteDoc(docRef);
-    } catch (err) {
-      console.error(err.message);
-    }
+    const model = new Animal({ name: "mike", type: "cat" });
+    const docRef = await model.create();
+    const otherModel = new Animal();
+    otherModel.subscribe(docRef.id);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    expect(otherModel.name).toBe("mike");
+    otherModel.unsubscribe();
+    await deleteDoc(docRef);
   });
 
   /**
    * subscribeDocs の動作を確認します。
    */
   test("subscribeDocs document.", async () => {
-    try {
-      const model = new Animal({ name: "mike", type: "cat" });
+    // 作成するドキュメントのリストを用意
+    const animals = [
+      { name: "mike", type: "cat" },
+      { name: "tama", type: "cat" },
+      { name: "pon", type: "cat" },
+      { name: "pochi", type: "dog" },
+      { name: "miyake", type: "dog" },
+      { name: "pokky", type: "dog" },
+      { name: "toppo", type: "dog" },
+    ];
+
+    const docRefs = [];
+
+    // リスト分のドキュメントを作成
+    const model = new Animal();
+    for (const animal of animals) {
+      model.initialize(animal);
       const docRef = await model.create();
-      const otherModel = new Animal();
-      const docs = otherModel.subscribeDocs();
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      expect(docs.length).toBe(1);
-      otherModel.unsubscribe();
-      await deleteDoc(docRef);
-    } catch (err) {
-      console.error(err.message);
+      docRefs.push(docRef);
     }
+
+    // リスナー用のモデルを用意
+    const listenerModel = new Animal();
+
+    // type = 'cat' のドキュメントを購読
+    const typeDocs = listenerModel.subscribeDocs([
+      ["where", "type", "==", "cat"],
+    ]);
+
+    // 購読が完了するまで待機
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    // 購読したドキュメントをカウント
+    const typeLength = typeDocs.length;
+
+    // N-Gram ( name includes 'po' ) のドキュメントを購読
+    const nameDocs = listenerModel.subscribeDocs("po");
+
+    // 購読が完了するまで待機
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    // 購読したドキュメントをカウント
+    const nameLength = nameDocs.length;
+
+    // 複合検索 のドキュメントを購読
+    const nameAndTypeDocs = listenerModel.subscribeDocs("po", [
+      ["where", "type", "==", "cat"],
+    ]);
+
+    // 購読が完了するまで待機
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    // 購読したドキュメントをカウント
+    const nameTypeLength = nameAndTypeDocs.length;
+
+    // 購読を解除
+    listenerModel.unsubscribe();
+
+    // 作成したドキュメントを削除
+    for (const docRef of docRefs) {
+      await deleteDoc(docRef);
+    }
+
+    // 読み込んだドキュメント数の確認
+    expect(typeLength).toBe(3);
+    expect(nameLength).toBe(4);
+    expect(nameTypeLength).toBe(1);
   });
 
   afterAll(() => {
