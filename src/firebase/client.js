@@ -4,20 +4,8 @@
  */
 
 const dotenv = require("dotenv");
-const fs = require("fs");
 
-// `NODE_ENV` に応じた `.env` ファイルを読み込む
-const envFile = `.env.${process.env.NODE_ENV || "local"}`;
-dotenv.config({ path: fs.existsSync(envFile) ? envFile : ".env" });
-
-if (!fs.existsSync(envFile) && !fs.existsSync(".env")) {
-  console.error(
-    `Error: No environment configuration file found (${envFile} or .env).`
-  );
-  process.exit(1);
-} else {
-  console.log(`Loaded environment variables from ${envFile}`);
-}
+dotenv.config({ path: `.env.${process.env.NODE_ENV || "local"}` });
 
 const { initializeApp, getApps, deleteApp } = require("firebase/app");
 const {
@@ -48,6 +36,11 @@ const firebaseConfig = {
 const region = process.env.REGION || "us-central1";
 
 // Firebase の初期化
+if (getApps()[0]) {
+  console.log("Firebase app is already initialized.");
+} else {
+  console.log("Firebase app is initialized.");
+}
 const app = getApps()[0] || initializeApp(firebaseConfig);
 
 // Firebase サービスのインスタンスを取得
