@@ -3,23 +3,17 @@
  * FireModel に ClientAdapter をセットし、各種サービスのインスタンスとともに
  * 提供します。
  */
-const {
+import {
   firestore,
   auth,
   storage,
   database,
   functions,
-} = require("./firebase/client");
+} from "./firebase/client.js";
 
-const ClientAdapter = require("../src/adapters/ClientAdapter");
-const FireModel = require("./FireModel");
+import ClientAdapter from "./adapters/ClientAdapter.js";
+import FireModel from "./FireModel.js";
+
 FireModel.setAdapter(ClientAdapter);
 
-module.exports = {
-  firestore,
-  auth,
-  storage,
-  database,
-  functions,
-  FireModel,
-};
+export { firestore, auth, storage, database, functions, FireModel };

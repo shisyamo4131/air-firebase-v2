@@ -1,7 +1,7 @@
 /**
  * サーバー側 FireModel 単体テスト
  */
-const { firestore, FireModel } = require("air-firebase-v2");
+const { firestore, FireModel } = require("air-firebase-v2/server");
 const functions = require("firebase-functions-test")({
   projectId: "air-firebase-v2",
 });

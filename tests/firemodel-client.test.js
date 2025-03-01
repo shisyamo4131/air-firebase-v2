@@ -5,8 +5,8 @@ const {
   collection,
   getDocs,
 } = require("firebase/firestore");
-const { firestore, FireModel } = require("../src/client");
-const { terminateFirebase } = require("../src/firebase/client");
+const { firestore, FireModel } = require("../dist/cjs/client");
+const { terminateFirebase } = require("../dist/cjs/firebase/client");
 
 class Animal extends FireModel {
   static collectionPath = "Animals";

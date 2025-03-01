@@ -2,8 +2,8 @@
  * サーバー側で使用する FireModel のアダプターです。
  * FireModel に Firestore に対する CRUD 機能を注入します。
  */
-const { logger } = require("firebase-functions");
-const { firestore } = require("../firebase/server");
+import { logger } from "firebase-functions";
+import { firestore } from "../firebase/server.js";
 
 class ServerAdapter {
   /**
@@ -657,4 +657,4 @@ class ServerAdapter {
   }
 }
 
-module.exports = new ServerAdapter();
+export default new ServerAdapter();

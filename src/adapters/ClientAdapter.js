@@ -2,7 +2,7 @@
  * アプリ側で使用する FireModel のアダプターです。
  * FireModel に Firestore に対する CRUD 機能を注入します。
  */
-const {
+import {
   collection,
   doc,
   getDoc,
@@ -15,8 +15,8 @@ const {
   collectionGroup,
   writeBatch,
   onSnapshot,
-} = require("firebase/firestore");
-const { firestore, auth } = require("../firebase/client");
+} from "firebase/firestore";
+import { firestore, auth } from "../firebase/client.js";
 
 class ClientAdapter {
   /**
@@ -698,4 +698,4 @@ class ClientAdapter {
   }
 }
 
-module.exports = new ClientAdapter();
+export default new ClientAdapter();
