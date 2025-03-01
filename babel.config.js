@@ -1,5 +1,5 @@
 module.exports = {
   presets: [
-    ["@babel/preset-env", { modules: "commonjs" }], // CJS に変換
+    ["@babel/preset-env", { modules: false }], // CJS に変換
   ],
 };
