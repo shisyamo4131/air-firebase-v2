@@ -1,6 +1,11 @@
 {
   "name": "air-firebase-v2",
   "version": "1.0.0",
+  "type": "commonjs",
+  "exports": {
+    "./client": "./src/client.js",
+    "./server": "./src/server.js"
+  },
   "scripts": {
     "build:esm": "babel src --out-dir dist/esm --extensions .js --ignore 'src/**/*.test.js' --env-name esm",
     "build:cjs": "babel src --out-dir dist/cjs --extensions .js --ignore 'src/**/*.test.js' --env-name cjs",
