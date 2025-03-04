@@ -3,11 +3,10 @@
  * FireModel に ServerAdapter をセットし、各種サービスのインスタンスとともに
  * 提供します。
  */
-import { firestore, auth, storage, database } from "./firebase/server.js";
+const { firestore, auth, storage, database } = require("./firebase/server.js");
+const { ServerAdapter } = require("./adapters/ServerAdapter.js");
+const { FireModel } = require("./FireModel.js");
 
-import ServerAdapter from "./adapters/ServerAdapter.js";
-import FireModel from "./FireModel.js";
+FireModel.setAdapter(new ServerAdapter());
 
-FireModel.setAdapter(ServerAdapter);
-
-export { firestore, auth, storage, database, FireModel };
+module.exports = { firestore, auth, storage, database, FireModel };

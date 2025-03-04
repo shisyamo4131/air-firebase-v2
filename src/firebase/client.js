@@ -3,16 +3,22 @@
  * Firebase に接続するための環境変数は .env ファイルから読み込みます。
  */
 
-import dotenv from "dotenv";
+const dotenv = require("dotenv");
 
 dotenv.config({ path: `.env.${process.env.NODE_ENV || "local"}` });
 
-import { initializeApp, getApps, deleteApp } from "firebase/app";
-import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
-import { getAuth, connectAuthEmulator } from "firebase/auth";
-import { getStorage, connectStorageEmulator } from "firebase/storage";
-import { getDatabase, connectDatabaseEmulator } from "firebase/database";
-import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
+const { initializeApp, getApps, deleteApp } = require("firebase/app");
+const {
+  getFirestore,
+  connectFirestoreEmulator,
+} = require("firebase/firestore");
+const { getAuth, connectAuthEmulator } = require("firebase/auth");
+const { getStorage, connectStorageEmulator } = require("firebase/storage");
+const { getDatabase, connectDatabaseEmulator } = require("firebase/database");
+const {
+  getFunctions,
+  connectFunctionsEmulator,
+} = require("firebase/functions");
 
 // Firebase 設定を環境変数から取得
 const firebaseConfig = {
@@ -71,7 +77,7 @@ const terminateFirebase = async () => {
   }
 };
 
-export {
+module.exports = {
   app,
   auth,
   database,

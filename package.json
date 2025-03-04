@@ -11,9 +11,10 @@
       "require": "./dist/cjs/server.js"
     }
   },
+  "type": "module",
   "scripts": {
-    "build:esm": "babel src --out-dir dist/esm --extensions .js --ignore 'src/**/*.test.js'",
-    "build:cjs": "babel src --out-dir dist/cjs --extensions .js --ignore 'src/**/*.test.js' --plugins=@babel/plugin-transform-modules-commonjs",
+    "build:esm": "babel src --out-dir dist/esm --extensions .js --ignore 'src/**/*.test.js' --env-name esm",
+    "build:cjs": "babel src --out-dir dist/cjs --extensions .js --ignore 'src/**/*.test.js' --env-name cjs",
     "build": "npm run build:esm && npm run build:cjs",
     "test": "jest",
     "test:local": "cross-env NODE_ENV=local jest",
