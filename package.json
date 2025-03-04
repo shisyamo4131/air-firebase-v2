@@ -11,7 +11,6 @@
       "require": "./dist/cjs/server.js"
     }
   },
-  "type": "module",
   "scripts": {
     "build:esm": "babel src --out-dir dist/esm --extensions .js --ignore 'src/**/*.test.js' --env-name esm",
     "build:cjs": "babel src --out-dir dist/cjs --extensions .js --ignore 'src/**/*.test.js' --env-name cjs",
