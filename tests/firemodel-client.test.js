@@ -1,12 +1,13 @@
-const {
+import {
   doc,
   getDoc,
   deleteDoc,
   collection,
   getDocs,
-} = require("firebase/firestore");
-const { firestore, FireModel } = require("../dist/cjs/client");
-const { terminateFirebase } = require("../dist/cjs/firebase/client");
+} from "firebase/firestore";
+
+import { firestore, FireModel } from "../src/client.js";
+import { terminateFirebase } from "../src/firebase/client.js";
 
 class Animal extends FireModel {
   static collectionPath = "Animals";

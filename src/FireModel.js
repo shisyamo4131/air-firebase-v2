@@ -750,4 +750,4 @@ class FireModel {
   }
 }
 
-module.exports = { FireModel };
+export default FireModel;
