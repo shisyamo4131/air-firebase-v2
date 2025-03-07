@@ -12,7 +12,9 @@ let app, firestore, auth, storage, database, functions;
  * Firebase を初期化する関数
  * @param {Object} config - Nuxt から渡される Firebase の設定オブジェクト
  */
-export function initializeFirebase(config) {
+export function initializeFirebase(config = null, useEmulator = false) {
+  if (!config) throw new Error("Please specify a config.");
+
   if (getApps().length === 0) {
     app = initializeApp(config);
     firestore = getFirestore(app);
@@ -22,7 +24,7 @@ export function initializeFirebase(config) {
     functions = getFunctions(app, config.region || "us-central1");
 
     // ローカル環境ならエミュレーターに接続
-    if (process.env.NODE_ENV === "local") {
+    if (useEmulator) {
       console.log("Using Firebase Emulators...");
 
       connectFirestoreEmulator(firestore, "localhost", 8080);
@@ -31,6 +33,9 @@ export function initializeFirebase(config) {
       connectDatabaseEmulator(database, "localhost", 9000);
       connectFunctionsEmulator(functions, "localhost", 5001);
     }
+
+    // FireModel の初期化
+    FireModel.setAdapter(new ClientAdapter());
   }
 }
 
