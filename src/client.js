@@ -10,11 +10,7 @@ import {
   database,
   functions,
 } from "./firebase/client.js";
-import ClientAdapter from "./adapters/ClientAdapter.js";
 import FireModel from "./FireModel.js";
-
-// Nuxt プラグインで Firebase が初期化されている前提
-// FireModel.setAdapter(new ClientAdapter());
 
 export {
   initializeFirebase,
@@ -24,5 +20,4 @@ export {
   database,
   functions,
   FireModel,
-  ClientAdapter,
 };
