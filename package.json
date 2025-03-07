@@ -4,9 +4,7 @@
   "type": "module",
   "main": "./src/server.js",
   "browser": "./src/client.js",
-  "scripts": {
-    "test:local": "cross-env NODE_ENV=local jest"
-  },
+  "scripts": {},
   "author": "shisyamo4131",
   "license": "ISC",
   "description": "",
@@ -15,15 +13,8 @@
     "firebase-admin": "^11.0.0"
   },
   "devDependencies": {
-    "@babel/preset-env": "^7.26.9",
-    "babel-jest": "^29.7.0",
-    "cross-env": "^7.0.3",
     "firebase": "^11.3.1",
     "firebase-admin": "^11.0.0",
-    "firebase-functions": "^6.0.1",
-    "jest": "^29.7.0"
-  },
-  "dependencies": {
-    "dotenv": "^16.4.7"
+    "firebase-functions": "^6.0.1"
   }
 }
