@@ -52,17 +52,30 @@ export default class FireModel {
 
   /**
    * Returns the Firestore collection path for this model.
-   * - The path is constructed using the configured prefix and the model's collection path.
+   * - The path is constructed using the model's static `config.prefix` and `collectionPath`.
+   * - If the first segment of the prefix matches the collection path, the prefix is ignored.
    *
-   * コレクションのパスを返します。
-   * - 設定されたプレフィックスと、モデルの `collectionPath` を連結して構築されます。
+   * モデルの Firestore コレクションパスを返します。
+   * - クラスの static プロパティ `config.prefix` と `collectionPath` を連結して構築されます。
+   * - prefix の最初のセグメントが `collectionPath` と一致する場合、prefix は無視されます。
    *
    * @returns {string} The full Firestore collection path.
-   *                   Firestore のコレクションパス。
+   *                   Firestore の完全なコレクションパス。
    */
   static getCollectionPath() {
-    const prefix = FireModel.config?.prefix || "";
-    return `${prefix}${FireModel.collectionPath}`;
+    const prefix = this.config?.prefix || "";
+    const collectionPath = this.collectionPath;
+
+    // プレフィックスをスラッシュで分割し、空でない要素だけを抽出
+    const segments = prefix.split("/").filter(Boolean);
+
+    // 最初のセグメントと collectionPath が一致する場合、prefix を無視
+    if (segments[0] === collectionPath) {
+      return collectionPath;
+    }
+
+    // 通常通り prefix + collectionPath を連結して返す
+    return `${prefix}${collectionPath}`;
   }
 
   /**
