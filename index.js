@@ -1,37 +1,29 @@
-/**
- * Firestore のドキュメントモデルを定義するためのベースモデルです。
- * インスタンスには必ず `docId`, `createdAt`, `updatedAt`, `uid` が含まれます。
- *
- * 《使い方》
- * 1. 管理するコレクションごとにこのクラスを継承したサブクラスを作成します。
- * 2. `collectionPath` に当該ドキュメントを保存するコレクションのパスを設定します。
- *
- * 《useAutonumber》
- *
- */
 export default class FireModel {
   /**
-   * An adapter that injects Firestore CRUD functionality into FireModel.
-   * The setAdapter method accepts a ClientAdapter or ServerAdapter.
+   * Firestore の CRUD 機能を注入するアダプター。
+   * Firestore CRUD adapter injected into FireModel.
    *
-   * FireModel に Firestore の CRUD 機能を注入するアダプターです。
-   * setAdapter メソッドにより ClientAdapter または ServerAdapter を受け取ります。
+   * - 通常は `setAdapter()` で設定されます。
+   * - ClientAdapter または ServerAdapter を受け入れます。
    */
   static adapter = null;
 
   /**
-   * A variable used to store settings that are injected separately from the project.
-   * プロジェクトから別途注入される設定を保存するための変数です。
+   * FireModel の動作設定。
+   * Configuration object for customizing FireModel behavior.
+   *
+   * - `setConfig()` を通じて注入されます。
+   * - 例：パスプレフィックスなど。
    */
   static config = {};
 
   /**
-   * Customize FireModel behavior.
    * FireModel の動作をカスタマイズします。
+   * Customize the behavior of FireModel.
    *
-   * @param {Object} config - FireModel に注入する設定情報
-   * @param {string} [config.prefix] - Firestore ドキュメントパスとして使われる prefix
-   * @throws {Error} If prefix is not a valid Firestore document path
+   * @param {Object} config - FireModel に注入する設定情報 / Configuration object for FireModel.
+   * @param {string} [config.prefix] - Firestore ドキュメントパスに付与する prefix / Optional prefix for Firestore paths.
+   * @throws {Error} prefix のセグメント数が奇数である場合 / If prefix has an odd number of path segments.
    */
   static setConfig(config) {
     const newConfig = { ...config };
@@ -57,121 +49,176 @@ export default class FireModel {
   }
 
   /**
-   * Returns FireModel behavior configuration data.
-   * FireModel の動作設定データを返します。
-   * @returns {Object} - 設定データ
+   * 現在の FireModel 設定を取得します。
+   * Get the current configuration for FireModel.
+   *
+   * @returns {Object} FireModel に設定された構成情報 / Current FireModel configuration.
    */
   static getConfig() {
     return this.config;
   }
 
   /**
-   * The collection path of the document to be managed.
-   *
-   * 管理するドキュメントのコレクションパスです。
+   * 管理対象となる Firestore コレクションのパス。
+   * The base path of the Firestore collection managed by this model.
    */
   static collectionPath = "FireModel";
 
   /**
-   * Returns the Firestore collection path for this model.
-   * - The path is constructed using the model's static `config.prefix` and `collectionPath`.
-   * - If the first segment of the prefix matches the collection path, the prefix is ignored.
-   * - If the prefix does not end with a slash, a slash is appended automatically.
-   * - If the prefix does not represent a valid Firestore document path (odd segments), an error is thrown.
+   * Firestore のコレクションパスを取得します。
+   * Get the Firestore collection path for this model.
    *
-   * モデルの Firestore コレクションパスを返します。
-   * - クラスの static プロパティ `config.prefix` と `collectionPath` を連結して構築されます。
-   * - prefix の最初のセグメントが `collectionPath` と一致する場合、prefix は無視されます。
-   * - prefix の末尾にスラッシュがない場合、自動的に追加されます。
-   * - prefix が Firestore のドキュメントパスとして正しくない場合（セグメントが奇数個）、エラーをスローします。
+   * - `prefix` → `config.prefix` → "" の順で優先されます。
+   * - `prefix` がスラッシュで終わっていない場合、自動的に追加されます。
+   * - セグメント数が奇数の prefix は Firestore のドキュメントパスとして無効です。
+   * - 最初のセグメントが `collectionPath` と同じであれば prefix は無視されます。
    *
-   * @returns {string} The full Firestore collection path.
-   * @throws {Error} If prefix is not a valid Firestore document path.
+   * - `prefix` is prioritized over `config.prefix` and then "".
+   * - If `prefix` does not end with "/", it will be appended automatically.
+   * - A prefix with an odd number of segments is invalid for Firestore document paths.
+   * - If the first segment of the prefix matches `collectionPath`, the prefix is ignored.
+   *
+   * @param {string|null} prefix - コレクションパスに付加するプレフィックス（省略可能）/ Optional prefix for the collection path.
+   * @returns {string} 完成された Firestore コレクションパス / Final resolved Firestore collection path.
+   * @throws {Error} 無効な prefix（奇数セグメント）である場合 / If the prefix is an invalid Firestore document path.
    */
-  static getCollectionPath() {
-    const prefix = this.config?.prefix || "";
-    const collectionPath = this.collectionPath;
+  static getCollectionPath(prefix = null) {
+    let effectivePrefix = prefix || this.config?.prefix || "";
 
-    const segments = prefix.split("/").filter(Boolean);
+    if (effectivePrefix && !effectivePrefix.endsWith("/")) {
+      effectivePrefix += "/";
+    }
+
+    const segments = effectivePrefix.split("/").filter(Boolean);
+    if (segments.length % 2 !== 0) {
+      throw new Error(
+        `Invalid prefix path: "${effectivePrefix}". Firestore document paths must have an even number of segments.`
+      );
+    }
+
+    const collectionPath = this.collectionPath;
 
     if (segments[0] === collectionPath) {
       return collectionPath;
     }
 
-    return `${prefix}${collectionPath}`;
+    return `${effectivePrefix}${collectionPath}`;
   }
+
   /**
-   * If true, auto-numbering is performed with the contents specified in the Autonumber document.
-   *
-   * true にすると Autonumber ドキュメントに指定された内容で自動採番を行います。
+   * 自動採番機能の有効フラグ。
+   * Enable automatic numbering using the Autonumbers document.
    */
   static useAutonumber = false;
 
   /**
-   * If true, the document will be moved to the archive collection without being deleted.
-   *
-   * true にするとドキュメントは削除されずに archive コレクションに移動されます。
+   * 論理削除機能の有効フラグ。
+   * If true, documents are archived instead of permanently deleted.
    */
   static logicalDelete = false;
 
   /**
-   * Data model definition. The following properties are available
+   * モデルが持つプロパティの定義オブジェクト。
+   * Definition of the properties that this model manages.
    *
-   * データモデルの定義です。以下のプロパティを利用可能です。
+   * 各プロパティに以下の構成が指定できます：
+   * Each property may define the following fields:
    *
-   * [type]
-   * - Property type.
-   * - プロパティの型です。
+   * - `type`: プロパティのデータ型（String, Number, Boolean, Object, Array）
+   *           Type of the property (e.g., String, Number, Boolean, Object, Array)
    *
-   * [default]
-   * - Initial value of the property.
-   * - プロパティの初期値です。
+   * - `default`: 初期値または初期化関数
+   *              Default value or a function that returns the default
    *
-   * [required]
-   * - ドキュメントを作成または更新する際、値を必須とするためのフラグです。（オプション）
-   * - Flag to make the value mandatory when creating or updating a document.(Optional)
+   * - `required`: ドキュメント作成・更新時に必須かどうか（省略可）
+   *               Whether the field is required during create/update (optional)
    *
-   * [customClass]
-   * - If type is Object, the object is converted to an instance of the specified class.
-   *   If type is Array, the elements (objects) in the array are converted to instances of the specified class.
-   *   Other types are ignored.
+   * - `customClass`: type が Object または Array の場合、オブジェクトを指定クラスのインスタンスに変換
+   *                  If `type` is Object or Array, converts data to the given class instance
    *
-   * - type が Object の場合、オブジェクトが指定されたクラスのインスタンスに変換されます。
-   *   type が Array の場合、配列内の要素（オブジェクト）が指定されたクラスのインスタンスに変換されます。
-   *   その他の type の場合は無視されます。
+   * - `validator`: 値に対して追加のバリデーション関数を適用
+   *                A function to apply custom validation to the value
    *
-   * [validator]
-   * - Validator applied to the property.
-   * - プロパティに適用されるバリデータです。
+   * 例 / Example:
+   * classProps = {
+   *   name: { type: String, default: "", required: true },
+   *   age: { type: Number, default: 0 },
+   *   isActive: { type: Boolean, default: false },
+   *   address: { type: Object, default: {}, customClass: Address },
+   *   tags: { type: Array, default: () => [], customClass: Tag }
+   * };
    */
   static classProps = {};
 
   /**
-   * The definition of a collection that depends on the collection document managed by the class in question.
+   * このモデルが親となる子コレクションの定義配列。
+   * Defines child collections that depend on this model's documents.
    *
-   * 当該クラスが管理するコレクションドキュメントに依存するコレクションの定義です。
+   * 各要素は以下の構造を持ちます：
+   * Each element is an object with the following structure:
    *
-   * { collectionPath, field, condition, type }
+   * - `collectionPath`: 子コレクションのパス（文字列）
+   *                     Path to the child collection (string)
+   *
+   * - `field`: このモデル側のキー（フィルタリングに使用）
+   *            Key in this model used for filtering (string)
+   *
+   * - `condition`: クエリ条件（演算子を含む配列: [フィールド, 演算子, 値]）
+   *                Query condition using Firestore syntax: [field, operator, value]
+   *
+   * - `type`: 関連タイプ。通常は `"hasMany"`（将来的には `"hasOne"` 等も想定可）
+   *           Relation type — typically `"hasMany"` (future support for `"hasOne"` possible)
+   *
+   * 例 / Example:
+   * hasMany = [
+   *   {
+   *     collectionPath: "Tasks",
+   *     field: "projectId",
+   *     condition: ["projectId", "==", "$docId"],
+   *     type: "hasMany"
+   *   }
+   * ];
+   *
+   * 上記は「このモデルが Project の場合、Tasks コレクションの中から projectId が一致するタスクを関連付ける」という意味です。
+   * The example links Tasks to this model (e.g., Project) where projectId matches the document ID.
    */
   static hasMany = [];
 
   /**
-   * List of fields to be reflected in tokenMap.
-   * Generate a tokenMap for NGram lookups to compensate for Firestore's weak queries.
-   * An object is created whose key is one or two characters of the value set in the specified field.
+   * `tokenMap` を生成する対象フィールドのリスト。
+   * List of fields used to generate a `tokenMap` for N-Gram search.
    *
-   * tokenMap に反映させるフィールドのリストです。
-   * Firestore の脆弱なクエリを補う為、NGram 検索のための tokenMap を生成します。
-   * 指定されたフィールドにセットされている値の 1文字 または 2文字 をキーとしたオブジェクトが生成されます。
+   * - 指定されたフィールド値から1文字・2文字のトークンを生成します。
+   * - 生成されたトークンは、`tokenMap` フィールドに `{ token: true }` 形式で保存されます。
+   * - サロゲートペア（絵文字など）、特殊文字、空白などは除外されます。
+   * - Firestore の全文検索機能を補完する目的で使用されます。
+   *
+   * - Generates 1- and 2-character tokens from each field value.
+   * - Tokens are stored in `tokenMap` as `{ token: true }` for Firestore querying.
+   * - Used to implement efficient text search.
+   *
+   * 例 / Example:
+   * tokenFields = ["name", "email"];
    */
   static tokenFields = [];
 
   /**
-   * Variable for listeners when document subscription by real-time listeners is started.
+   * ドキュメント購読のためのリアルタイムリスナー関数。
+   * Firestore unsubscribe function for document listener.
    *
-   * リアルタイムリスナーによるドキュメントの購読を開始した際のリスナー用変数です。
+   * - `subscribe()` により設定され、`unsubscribe()` により解除されます。
+   * - アクティブなリスナーが存在する場合に保持されます。
+   *
+   * - Holds the unsubscribe function returned by Firestore’s `onSnapshot()`.
    */
   #listener = null;
+
+  /**
+   * 現在のリアルタイムリスナー関数を取得または設定します。
+   * Get or set the current Firestore listener function.
+   *
+   * @type {Function|null}
+   */
   get listener() {
     return this.#listener;
   }
@@ -180,11 +227,20 @@ export default class FireModel {
   }
 
   /**
-   * An array of documents read by real-time listeners subscribing to documents.
+   * `subscribeDocs()` によってリアルタイム購読されたドキュメント配列。
+   * Array of documents fetched through real-time collection subscription.
    *
-   * リアルタイムリスナーによるドキュメントの購読によって読み込まれたドキュメントの配列です。
+   * - `subscribeDocs()` によって更新されます。
+   * - 各要素はこのモデルのインスタンスです。
    */
   #docs = [];
+
+  /**
+   * 購読中のドキュメントデータを取得または設定します。
+   * Get or set the array of documents being observed in real-time.
+   *
+   * @type {Array<Object>}
+   */
   get docs() {
     return this.#docs;
   }
@@ -193,17 +249,27 @@ export default class FireModel {
   }
 
   /**
-   * Set the adapter on the FireModel.
-   * FireModel にアダプターをセットします。
-   * @param {ClientAdapter | ServerAdapter} adapter
+   * FireModel にアダプターを設定します。
+   * Set the Firestore adapter to use in FireModel.
+   *
+   * - アダプターは Firestore の CRUD 操作を担当します。
+   * - 通常、ClientAdapter または ServerAdapter のいずれかを渡します。
+   *
+   * - Adapter handles Firestore CRUD operations.
+   * - Typically, you provide either a ClientAdapter or ServerAdapter.
+   *
+   * @param {Object} adapter - Firestore CRUD アダプターインスタンス / Firestore CRUD adapter instance.
    */
   static setAdapter(adapter) {
     FireModel.adapter = adapter;
   }
 
   /**
-   * Returns the adapter currently set in FireModel.
-   * FireModel に現在セットされているアダプターを返します。
+   * 現在設定されている Firestore アダプターを取得します。
+   * Get the Firestore adapter currently set in FireModel.
+   *
+   * @returns {Object} 設定されたアダプターインスタンス / Configured adapter instance.
+   * @throws {Error} アダプターが未設定の場合 / If no adapter has been set via `setAdapter()`.
    */
   static getAdapter() {
     if (!FireModel.adapter) {
@@ -215,16 +281,16 @@ export default class FireModel {
   }
 
   /**
-   * Constructs an instance of the class.
+   * FireModel の新しいインスタンスを作成します。
+   * Create a new instance of FireModel.
+   *
+   * - `classProps` の定義に基づいてプロパティを初期化します。
+   * - 渡された `item` の値でプロパティをセットします。
+   *
    * - Initializes properties based on `classProps` definitions.
-   * - Calls `initialize(item)` to populate properties with provided values.
+   * - Uses `item` to populate instance values.
    *
-   * クラスのインスタンスを生成します。
-   * - `classProps` に基づいてプロパティを定義します。
-   * - `initialize(item)` を呼び出し、渡された値をもとにプロパティを設定します。
-   *
-   * @param {Object} item - An object containing initial values for the instance properties.
-   *                        インスタンスのプロパティを初期化するための値を持つオブジェクト。
+   * @param {Object} item - 初期化に使用する値を持つオブジェクト / Object containing initial property values.
    */
   constructor(item = {}) {
     // classProps に定義された内容でプロパティを用意
@@ -235,31 +301,32 @@ export default class FireModel {
   }
 
   /**
-   * Returns a cloned instance of the current object.
-   * - Used to avoid reference sharing when returning an instance to a parent in a Vue component.
+   * インスタンスのクローンを生成します。
+   * Create a cloned instance of this object.
    *
-   * 当該インスタンスを複製した新しいインスタンスを返します。
-   * - Vue コンポーネントにおいてインスタンスを親に返す場合など、参照渡しを回避するのに使用します。
+   * - 参照を避けたい場合（Vue コンポーネントでの親子間受け渡しなど）に有効です。
+   * - Deep clone ではなく、同一クラスの新しいインスタンスとして返されます。
    *
-   * @returns {this} A new cloned instance of the current object.
-   *                 現在のオブジェクトを複製した新しいインスタンス。
+   * - Useful for avoiding reference sharing (e.g., in Vue parent-child props).
+   * - Returns a new instance of the same class.
+   *
+   * @returns {this} クローンされた新しいインスタンス / Cloned new instance.
    */
   clone() {
     return new this.constructor(this);
   }
 
   /**
-   * Provides a Firestore data converter for this class.
-   * - `toFirestore` converts an instance into a plain JavaScript object.
-   * - `fromFirestore` converts a Firestore document snapshot into an instance of this class.
+   * Firestore 用のコンバーターを提供します。
+   * Provide a Firestore data converter for this class.
    *
-   * Firestore 用のデータコンバーターを提供します。
-   * - `toFirestore` はインスタンスをプレーンな JavaScript オブジェクトに変換します。
-   * - `fromFirestore` は Firestore のドキュメントスナップショットを
-   *   当該クラスのインスタンスに変換します。
+   * - Firestore との相互変換に使用します。
+   * - `toFirestore`: インスタンス → プレーンオブジェクト
+   * - `fromFirestore`: スナップショット → クラスインスタンス
    *
-   * @returns {Object} A Firestore data converter with `toFirestore` and `fromFirestore` methods.
-   *                   `toFirestore` と `fromFirestore` メソッドを持つ Firestore のデータコンバーターオブジェクト。
+   * - Used for serializing and deserializing Firestore documents.
+   *
+   * @returns {Object} `toFirestore`, `fromFirestore` を持つ変換オブジェクト / Converter object for Firestore.
    */
   static converter() {
     return {
@@ -269,23 +336,18 @@ export default class FireModel {
   }
 
   /**
-   * Converts a Firestore document snapshot into an instance of this class.
-   * - The data from the snapshot is mapped to the instance properties.
-   * - If a property is defined as a custom class, it will be instantiated accordingly.
-   * - Arrays containing custom class objects are converted element-wise.
+   * Firestore スナップショットをクラスインスタンスに変換します。
+   * Convert a Firestore snapshot to a class instance.
    *
-   * Firestore から取得したドキュメントスナップショットを
-   * 当該クラスのインスタンスに変換します。
-   * - スナップショットのデータをインスタンスのプロパティにマッピングします。
-   * - プロパティがカスタムクラスとして定義されている場合、自動的にインスタンス化します。
-   * - カスタムクラスを含む配列も要素ごとに変換します。
+   * - カスタムクラス指定がある場合、自動でインスタンス化されます。
+   * - 配列内のオブジェクトにも再帰的に適用されます。
    *
-   * @param {FirebaseFirestore.DocumentSnapshot} snapshot - Firestore document snapshot to convert.
-   *                                                        Firestore から取得したドキュメントスナップショット。
-   * @returns {FireModel} An instance of the class with data populated from the snapshot.
-   *                      Firestore スナップショットのデータを基に生成されたクラスのインスタンス。
-   * @throws {Error} If the provided snapshot is invalid or contains no data.
-   *                 無効なスナップショット、またはデータが存在しない場合にエラーをスローします。
+   * - Automatically instantiates nested custom classes if defined.
+   * - Handles arrays with custom class objects.
+   *
+   * @param {DocumentSnapshot} snapshot - Firestore ドキュメントスナップショット / Firestore document snapshot.
+   * @returns {FireModel} インスタンス化されたオブジェクト / Instance populated from Firestore data.
+   * @throws {Error} スナップショットが無効な場合 / If the snapshot is invalid or has no data.
    */
   static fromFirestore(snapshot) {
     const data = snapshot?.data() ?? null;
@@ -322,28 +384,19 @@ export default class FireModel {
   }
 
   /**
-   * Initializes the instance properties based on `classProps` definitions.
-   * - If provided, the `item` object is used to populate the properties.
-   * - Fields `docId`, `uid`, `createdAt`, and `updatedAt` are always initialized.
-   * - `createdAt` and `updatedAt` are converted to `Date` objects if applicable.
-   * - Other properties are processed based on their type definitions in `classProps`:
-   *   - `String`, `Number`, `Boolean`: Directly assigned.
-   *   - `Object`: Converted to an instance of a custom class if defined, otherwise deep-copied.
-   *   - `Array`: Converted to instances of a custom class if defined, otherwise deep-copied.
-   * - After initialization, the `_beforeData` property stores the initial state.
+   * プロパティを `classProps` の定義に基づいて初期化します。
+   * Initialize instance properties based on `classProps`.
    *
-   * クラスインスタンスの各プロパティを `classProps` の定義に基づいて初期化します。
-   * - `item` オブジェクトが提供された場合、そのデータを用いてプロパティを設定します。
-   * - `docId`, `uid`, `createdAt`, `updatedAt` は必ず初期化されます。
-   * - `createdAt`, `updatedAt` は `Date` オブジェクトに変換されます（可能な場合）。
-   * - その他のプロパティは `classProps` の型定義に応じて処理されます:
-   *   - `String`, `Number`, `Boolean`: そのまま代入。
-   *   - `Object`: カスタムクラスが定義されていれば変換、それ以外はディープコピー。
-   *   - `Array`: カスタムクラスが定義されていれば要素ごとに変換、それ以外はディープコピー。
-   * - 初期化後、元のデータを `_beforeData` プロパティに保存します。
+   * - `docId`, `uid`, `createdAt`, `updatedAt` は常にセットされます。
+   * - `createdAt`, `updatedAt` は Date オブジェクトに変換されます。
+   * - カスタムクラスや配列も適切に変換・コピーされます。
+   * - 初期状態は `_beforeData` に保持されます。
    *
-   * @param {Object} item - An object containing initial values for the instance properties.
-   *                        インスタンスのプロパティにセットする初期値を持つオブジェクト。
+   * - Ensures system fields like `docId`, `createdAt` are always initialized.
+   * - Dates are converted from Firestore Timestamps if needed.
+   * - Handles deep copy or class instantiation for complex fields.
+   *
+   * @param {Object} item - 初期化に使用する値のオブジェクト / Object containing initial values.
    */
   initialize(item = {}) {
     // 初期化処理
@@ -421,20 +474,17 @@ export default class FireModel {
   }
 
   /**
-   * Converts the instance into a plain JavaScript object.
+   * インスタンスをプレーンなオブジェクトに変換します。
+   * Convert the instance to a plain JavaScript object.
+   *
+   * - `enumerable` なプロパティのみが含まれます。
+   * - `toObject()` を持つオブジェクトは再帰的に変換されます。
+   * - `_beforeData` は出力から除外されます。
+   *
    * - Only `enumerable` properties are included.
-   * - If a property has a `toObject()` method, it is called recursively.
-   * - Arrays are processed element-wise, converting objects recursively.
-   * - `_beforeData` is removed from the final object.
+   * - Recursively converts nested objects and arrays.
    *
-   * 当該インスタンスをプレーンな JavaScript オブジェクトに変換します。
-   * - `enumerable` なプロパティのみを含めます。
-   * - プロパティが `toObject()` メソッドを持つ場合、それを再帰的に呼び出します。
-   * - 配列の各要素を処理し、オブジェクトは再帰的に変換します。
-   * - `_beforeData` を最終的なオブジェクトから削除します。
-   *
-   * @returns {Object} A plain object containing all `enumerable` properties of the instance.
-   *                   インスタンスの `enumerable` なプロパティを含むプレーンなオブジェクト。
+   * @returns {Object} 変換後のプレーンオブジェクト / Plain JavaScript object representing the instance.
    */
   toObject() {
     // 最終的に返すオブジェクトを用意
@@ -485,24 +535,45 @@ export default class FireModel {
   }
 
   /**
-   * Generates properties based on `classProps` definitions.
-   * - The mandatory properties `docId`, `uid`, `createdAt`, and `updatedAt` are always created.
-   * - If a property has a default value defined in `classProps`, it is assigned accordingly.
-   * - If the default value is a function, its return value is assigned instead.
-   * - If `tokenFields` contains elements, a `tokenMap` property is created with getter and setter methods.
+   * `classProps` に基づいてプロパティを定義します。
+   * Define properties based on the `classProps` definition.
    *
-   * `classProps` に定義された内容でプロパティを生成します。
-   * - `docId`, `uid`, `createdAt`, `updatedAt` は必ず作成されます。
-   * - `classProps` にデフォルト値が定義されている場合、それを適用します。
-   * - デフォルト値が関数の場合、その関数を実行し、戻り値を代入します。
-   * - `tokenFields` に要素が含まれている場合、`tokenMap` プロパティを生成し、
-   *   ゲッターおよびセッターを定義します。
+   * - `docId`, `uid`, `createdAt`, `updatedAt` は常に生成されます。
+   * - `default` 値が関数であればその戻り値が使用されます。
+   * - `tokenFields` に基づいて `tokenMap` も自動的に生成されます。
+   *
+   * - Creates all model fields with default values.
+   * - Adds a dynamic `tokenMap` getter/setter if `tokenFields` is set.
    */
   #createProperties() {
-    // 必須プロパティの生成
+    /**
+     * Firestore ドキュメントの ID。
+     * Document ID in Firestore.
+     *
+     * - Firestore により自動生成されるか、明示的に指定できます。
+     */
     this.docId = "";
+
+    /**
+     * ユーザーIDなど、操作主体を表す任意の ID。
+     * ID representing the user or entity responsible for the document.
+     */
     this.uid = "";
+
+    /**
+     * ドキュメントの作成日時。
+     * Timestamp of when the document was created.
+     *
+     * - Firestore Timestamp または Date オブジェクトに変換されます。
+     */
     this.createdAt = null;
+
+    /**
+     * ドキュメントの最終更新日時。
+     * Timestamp of the most recent document update.
+     *
+     * - Firestore Timestamp または Date オブジェクトに変換されます。
+     */
     this.updatedAt = null;
 
     // classProps に定義されたプロパティを生成
@@ -530,16 +601,16 @@ export default class FireModel {
   }
 
   /**
-   * Validates each property value based on the definitions in `classProps`.
-   * - Called before creating or updating a Firestore document.
-   * - Checks for required fields, correct types, and optional custom validation functions.
+   * `classProps` に基づいてプロパティの値を検証します。
+   * Validate property values based on `classProps` definitions.
    *
-   * `classProps` に定義された内容で各プロパティの値の妥当性を検査します。
-   * - Firestore ドキュメントの作成または更新前に呼び出されます。
-   * - 必須フィールド、型の整合性、カスタムバリデーション関数などを検査します。
+   * - `required` フィールドの存在確認を行います。
+   * - 型の整合性、カスタムバリデータの実行も行われます。
    *
-   * @throws {Error} If any required field is missing, or if validation fails.
-   *                 必須フィールドの欠落や、バリデーション不合格の場合にエラーをスローします。
+   * - Ensures required fields are present.
+   * - Verifies type correctness and runs custom validators.
+   *
+   * @throws {Error} 必須フィールドの欠落やバリデーション失敗時にスローされます / Throws if validation fails or required fields are missing.
    */
   validate() {
     Object.entries(this.constructor.classProps).forEach(([key, config]) => {
@@ -585,20 +656,17 @@ export default class FireModel {
   }
 
   /**
-   * Generates and returns a `tokenMap` based on the values of `tokenFields`.
-   * - Creates tokens from the values of fields specified in `tokenFields`.
-   * - Fields that do not exist or have empty values are ignored.
-   * - Tokens are generated by removing surrogate pairs, special characters, and whitespace.
-   * - Both single-character and two-character tokens are generated.
+   * `tokenFields` の値から `tokenMap` を生成します。
+   * Generate a `tokenMap` based on values of `tokenFields`.
    *
-   * `tokenFields` の値から `tokenMap` を生成して返します。
-   * - `tokenFields` で指定されたフィールドの値からトークンを生成します。
-   * - フィールドが存在しないか、値が空の場合は無視されます。
-   * - サロゲートペア、特殊文字、空白を除去してトークンを生成します。
-   * - 1文字および2文字単位のトークンを作成します。
+   * - 特殊文字・空白などは除去されます。
+   * - 1文字および2文字のトークンが生成されます。
+   * - トークンは {token: true} の形式で返されます。
    *
-   * @returns {Object|null} A generated `tokenMap`. Returns `null` if no valid fields exist.
-   *                        生成された `tokenMap` を返します。対象フィールドがない場合は `null` を返します。
+   * - Removes special characters and spaces before tokenizing.
+   * - Useful for building Firestore-compatible N-Gram queries.
+   *
+   * @returns {Object|null} 生成されたトークンマップ（対象がない場合は null）/ Generated token map or `null` if none created.
    */
   #generateTokenMap() {
     if (
@@ -633,16 +701,15 @@ export default class FireModel {
   }
 
   /**
-   * A setter for `tokenMap`.
-   * - This is a No-op (no-operation) setter to prevent errors during initialization.
-   * - It can be customized to implement specific logic if needed.
+   * `tokenMap` のセッター（No-op 実装）。
+   * No-op setter for `tokenMap`.
    *
-   * `tokenMap` のセッターです。
-   * - 初期化時のエラーを避けるための No-op（何もしない）セッターです。
-   * - 必要に応じて、特定のロジックを実装するためにカスタマイズできます。
+   * - 初期化エラー防止のために存在します。
+   * - 必要に応じてオーバーライド可能です。
    *
-   * @param {Object} value - The `tokenMap` value to set (currently unused).
-   *                         設定する `tokenMap` の値（現在は使用されません）。
+   * - Present to avoid assignment errors; can be customized.
+   *
+   * @param {Object} value - セットされる（が処理されない）値 / The value to set (currently ignored).
    */
   #setTokenMap(value) {
     // No-op setter to avoid errors during initialization.
@@ -650,119 +717,101 @@ export default class FireModel {
   }
 
   /**
-   * Defines a hook to be executed immediately before a document is created.
+   * ドキュメント作成前に実行されるフック処理です。
+   * Hook executed before creating a document.
+   *
+   * - 通常はサブクラスでオーバーライドして使用します。
+   * - このクラスでは何も行いません（デフォルト実装）。
+   *
    * - Intended to be overridden by subclasses.
-   * - Does nothing by default in this base class.
+   * - No operation in the base class.
    *
-   * ドキュメントを作成する直前に実行される処理を定義します。
-   * - 継承先でオーバーライドして使用されることを想定しています。
-   * - このクラスではデフォルトでは何も処理を行いません。
-   *
-   * @returns {Promise<void>} A resolved promise.
-   *                          解決済みのプロミスを返します（デフォルト動作）。
+   * @returns {Promise<void>} 解決済みの Promise / A resolved Promise.
    */
   beforeCreate() {
     return Promise.resolve();
   }
 
   /**
-   * Defines a hook to be executed immediately before a document is updated.
+   * ドキュメント更新前に実行されるフック処理です。
+   * Hook executed before updating a document.
+   *
+   * - 通常はサブクラスでオーバーライドして使用します。
+   * - このクラスでは何も行いません（デフォルト実装）。
+   *
    * - Intended to be overridden by subclasses.
-   * - Does nothing by default in this base class.
+   * - No operation in the base class.
    *
-   * ドキュメントを更新する直前に実行される処理を定義します。
-   * - 継承先でオーバーライドして使用されることを想定しています。
-   * - このクラスではデフォルトでは何も処理を行いません。
-   *
-   * @returns {Promise<void>} A resolved promise.
-   *                          解決済みのプロミスを返します（デフォルト動作）。
+   * @returns {Promise<void>} 解決済みの Promise / A resolved Promise.
    */
   beforeUpdate() {
     return Promise.resolve();
   }
 
   /**
-   * Defines a hook to be executed immediately before a document is deleted.
+   * ドキュメント削除前に実行されるフック処理です。
+   * Hook executed before deleting a document.
+   *
+   * - 通常はサブクラスでオーバーライドして使用します。
+   * - このクラスでは何も行いません（デフォルト実装）。
+   *
    * - Intended to be overridden by subclasses.
-   * - Does nothing by default in this base class.
+   * - No operation in the base class.
    *
-   * ドキュメントを削除する直前に実行される処理を定義します。
-   * - 継承先でオーバーライドして使用されることを想定しています。
-   * - このクラスではデフォルトでは何も処理を行いません。
-   *
-   * @returns {Promise<void>} A resolved promise.
-   *                          解決済みのプロミスを返します（デフォルト動作）。
+   * @returns {Promise<void>} 解決済みの Promise / A resolved Promise.
    */
   beforeDelete() {
     return Promise.resolve();
   }
 
   /**
-   * [ADAPTER] Assigns an auto-generated number to the instance using a Firestore transaction.
-   * - Retrieves the current autonumber document from the `Autonumbers` collection.
-   * - If numbering is enabled, increments the current value and assigns the new code to the instance.
-   * - Returns a function that, when executed, updates the `current` value in Firestore.
+   * Firestore トランザクションを使って自動採番を設定します。
+   * Set an auto-generated number using Firestore transaction.
    *
-   * [ADAPTER] Firestore のトランザクションを使用して、インスタンスに採番を行います。
-   * - `Autonumbers` コレクションから、現在の自動採番ドキュメントを取得します。
-   * - 採番可能である場合、現在値をインクリメントし、新しい採番コードをインスタンスにセットします。
-   * - `current` 値を更新するための関数を返します。（更新処理は呼び出し元で実行）
+   * - `Autonumbers` コレクションのドキュメントを取得し、`current` をインクリメントして採番します。
+   * - 更新処理は返される関数を呼び出すことで行われます。
    *
-   * @param {Object} transaction - Firestore transaction object (required).
-   *                               Firestore のトランザクションオブジェクト（必須）
-   * @returns {Promise<Function>} A function that updates the `current` value when called.
-   *                              `current` 値を更新する関数を返します（呼び出し元で実行）。
-   * @throws {Error} If no document exists for the target collection in `Autonumbers`.
-   *                 `Autonumbers` コレクションに対象のドキュメントが存在しない場合。
-   * @throws {Error} If autonumbering is disabled (`status: false`).
-   *                 採番が無効化されている場合（`status: false`）。
-   * @throws {Error} If the maximum value (`10^length - 1`) is reached.
-   *                 採番の最大値（`10^length - 1`）に達した場合。
+   * - Fetches and increments a document in the `Autonumbers` collection.
+   * - Returns a function that updates the counter when called.
+   *
+   * @param {Object} params - パラメータオブジェクト / Parameter object.
+   * @param {Object} params.transaction - Firestore トランザクションオブジェクト（必須）/ Firestore transaction object (required).
+   * @param {string|null} [params.prefix=null] - コレクションパスのプレフィックス（任意）/ Optional Firestore path prefix.
+   * @returns {Promise<Function>} 採番値を更新する関数 / A function that updates the `current` value.
+   * @throws {Error} ドキュメントが存在しない、無効なステータス、最大値到達時など / If no doc exists, status is false, or max value is reached.
    */
-  async setAutonumber(transaction) {
+  async setAutonumber({ transaction, prefix = null }) {
     const adapter = FireModel.getAdapter();
-    return await adapter.setAutonumber.bind(this)(transaction);
+    return await adapter.setAutonumber.bind(this)({ transaction, prefix });
   }
 
   /**
-   * [ADAPTER] Creates a document in Firestore.
-   * - Document creation is always executed within a Firestore transaction.
-   *   If no `transaction` is provided, a new one is created inside this function.
-   * - If `docId` is not specified, Firestore will assign an auto-generated ID.
-   * - If `useAutonumber` is `true`, the `setAutonumber()` method will be executed.
-   *   Note: The class must have `useAutonumber` set to `true` to enable autonumbering.
-   * - If a `callBack` is provided, it will be executed after the document is created.
+   * Firestore に新しいドキュメントを作成します。
+   * Create a new document in Firestore.
    *
-   * [ADAPTER] Firestore にドキュメントを作成します。
-   * - ドキュメントの作成は必ずトランザクション処理で実行されます。
-   *   引数 `transaction` が与えられなかった場合、この関数内でトランザクションが生成されます。
-   * - `docId` を指定しない場合、Firestore により自動で ID が割り当てられます。
-   * - `useAutonumber` を `true` にすると、自動採番 (`setAutonumber()`) を実行します。
-   *   但し、自動採番を行うためにはクラスの `useAutonumber` が `true` である必要があります。
-   * - `callBack` が指定されている場合、ドキュメント作成後にコールバック関数を実行します。
+   * - `transaction` が指定されない場合、自動で生成されます。
+   * - `useAutonumber` が有効な場合、`setAutonumber()` が実行されます。
+   * - 作成後、コールバックが指定されていれば実行されます。
    *
-   * @param {Object} args - Parameters for creating the document.
-   *                        ドキュメント作成のためのパラメータ。
-   * @param {string|null} [args.docId] - ID of the document to be created (optional).
-   *                                     作成するドキュメントのID（オプション）。
-   * @param {boolean} [args.useAutonumber=true] - If `true`, executes auto-numbering.
-   *                                              `true` の場合、自動採番を実行します。
-   * @param {Object|null} [args.transaction] - Firestore transaction object.
-   *                                           Firestore のトランザクションオブジェクト。
-   * @param {function|null} [args.callBack] - Callback to execute after document creation.
-   *                                          ドキュメント作成後に実行するコールバック関数。
-   * @returns {Promise<DocumentReference>} Reference to the newly created document.
-   *                                       作成されたドキュメントの参照。
-   * @throws {Error} If `callBack` is not a function.
-   *                 `callBack` が関数でない場合はエラーをスローします。
-   * @throws {Error} If Firestore write operation fails.
-   *                 Firestore への書き込みに失敗した場合はエラーをスローします。
+   * - Automatically uses transaction.
+   * - Calls `setAutonumber()` if enabled.
+   * - Runs callback after document creation if provided.
+   *
+   * @param {Object} args - パラメータオブジェクト / Parameters for document creation.
+   * @param {string|null} [args.docId=null] - 作成するドキュメントの ID / Document ID (optional).
+   * @param {boolean} [args.useAutonumber=true] - 自動採番を使用するかどうか / Whether to use auto-numbering.
+   * @param {Object|null} [args.transaction=null] - Firestore トランザクション / Firestore transaction object.
+   * @param {Function|null} [args.callBack=null] - コールバック関数 / Callback to run after creation.
+   * @param {string|null} [args.prefix=null] - パスのプレフィックス / Firestore path prefix.
+   * @returns {Promise<DocumentReference>} 作成されたドキュメントの参照 / Reference to the created document.
+   * @throws {Error} コールバックが関数でない、書き込み失敗など / If callback is not a function or write fails.
    */
   async create({
     docId = null,
     useAutonumber = true,
     transaction = null,
     callBack = null,
+    prefix = null,
   } = {}) {
     const adapter = FireModel.getAdapter();
     try {
@@ -771,6 +820,7 @@ export default class FireModel {
         useAutonumber,
         transaction,
         callBack,
+        prefix,
       });
     } catch (err) {
       adapter.logger.error(`[FireModel.js - create] ${err.message}`);
@@ -779,29 +829,30 @@ export default class FireModel {
   }
 
   /**
-   * [ADAPTER] Fetches a document with the specified ID from Firestore and loads it into the instance.
-   * - If the document does not exist, the instance data will be reset via `initialize(null)`.
-   * - If `transaction` is provided, the document is fetched within the transaction.
-   * - If `transaction` is `null`, it fetches the document using a standard `getDoc()` call.
+   * Firestore からドキュメントを取得し、インスタンスに読み込みます。
+   * Fetch a Firestore document and load it into this instance.
    *
-   * [ADAPTER] 指定された ID に該当するドキュメントを Firestore から取得し、インスタンスに読み込みます。
-   * - ドキュメントが存在しない場合、インスタンスのデータをリセット（`initialize(null)`）します。
-   * - `transaction` が指定されている場合、トランザクションを使用して取得します。
-   * - `transaction` が `null` の場合、通常の `getDoc()` を使用して取得します。
+   * - `transaction` が指定されていればそれを使用します。
+   * - ドキュメントが存在しない場合、初期状態にリセットされます。
    *
-   * @param {string} docId - ID of the document to fetch.
-   *                         取得するドキュメントの ID。
-   * @param {Object|null} [transaction=null] - Firestore transaction object (optional).
-   *                                           Firestore のトランザクションオブジェクト（オプション）。
-   * @returns {Promise<boolean>} `true` if the document exists, `false` otherwise.
-   *                             ドキュメントが存在する場合は `true`、存在しない場合は `false`。
-   * @throws {Error} If `docId` is not provided or Firestore fetch fails.
-   *                 `docId` が指定されていない、または Firestore の取得に失敗した場合にエラーをスローします。
+   * - Uses transaction if provided.
+   * - If no document is found, instance is reset.
+   *
+   * @param {Object} args - パラメータオブジェクト / Parameter object.
+   * @param {string} args.docId - 取得するドキュメントの ID / ID of the document to fetch.
+   * @param {Object|null} [args.transaction=null] - トランザクションオブジェクト / Firestore transaction object (optional).
+   * @param {string|null} [args.prefix=null] - パスのプレフィックス / Firestore path prefix (optional).
+   * @returns {Promise<boolean>} 取得成功時は true、失敗時は false / True if document exists, otherwise false.
+   * @throws {Error} `docId` が未指定または取得エラー時 / If `docId` is missing or fetch fails.
    */
-  async fetch(docId, transaction = null) {
+  async fetch({ docId, transaction = null, prefix = null }) {
     const adapter = FireModel.getAdapter();
     try {
-      return await adapter.fetch.bind(this)(docId, transaction);
+      return await adapter.fetch.bind(this)({
+        docId,
+        transaction,
+        prefix,
+      });
     } catch (err) {
       adapter.logger.error(`[FireModel.js - fetch] ${err.message}`);
       throw err;
@@ -809,29 +860,30 @@ export default class FireModel {
   }
 
   /**
-   * [ADAPTER] Fetches a document by ID from Firestore and returns it as a new object.
-   * - Unlike `fetch()`, which sets the data on this instance, `fetchDoc()` returns a new object.
-   * - If `transaction` is provided, the document is fetched within the transaction.
-   * - If `transaction` is `null`, it fetches the document using a standard `getDoc()` call.
+   * Firestore からドキュメントを取得し、新しいインスタンスとして返します。
+   * Fetch a Firestore document and return it as a new instance.
    *
-   * [ADAPTER] Firestore から指定された ID に該当するドキュメントを取得し、新しいオブジェクトとして返します。
-   * - `fetch()` はこのクラスのインスタンスにデータをセットしますが、`fetchDoc()` は新しいオブジェクトとして返します。
-   * - `transaction` が指定されている場合、トランザクションを使用して取得します。
-   * - `transaction` が `null` の場合、通常の `getDoc()` を使用して取得します。
+   * - `fetch()` は現在のインスタンスを更新しますが、`fetchDoc()` は新しいオブジェクトを返します。
+   * - `transaction` を使用することも可能です。
    *
-   * @param {string} docId - ID of the document to fetch.
-   *                         取得するドキュメントの ID。
-   * @param {Object|null} [transaction=null] - Firestore transaction object (optional).
-   *                                           Firestore のトランザクションオブジェクト（オプション）。
-   * @returns {Promise<Object|null>} The fetched document data as a plain object, or `null` if not found.
-   *                                 取得したデータオブジェクト。ドキュメントが存在しない場合は `null`。
-   * @throws {Error} If `docId` is not provided or Firestore fetch fails.
-   *                 `docId` が指定されていない場合、または Firestore の取得に失敗した場合にエラーをスローします。
+   * - Unlike `fetch()`, this does not modify the current instance.
+   * - Can be used within a Firestore transaction.
+   *
+   * @param {Object} args - パラメータオブジェクト / Parameter object.
+   * @param {string} args.docId - 取得するドキュメント ID / ID of the document to fetch.
+   * @param {Object|null} [args.transaction=null] - Firestore トランザクション（省略可）/ Optional Firestore transaction.
+   * @param {string|null} [args.prefix=null] - パスのプレフィックス / Optional Firestore path prefix.
+   * @returns {Promise<Object|null>} ドキュメントのデータ、存在しない場合は null / The fetched data object or null if not found.
+   * @throws {Error} `docId` が未指定または取得失敗時 / If `docId` is missing or fetch fails.
    */
-  async fetchDoc(docId = null, transaction = null) {
+  async fetchDoc({ docId, transaction = null, prefix = null }) {
     const adapter = FireModel.getAdapter();
     try {
-      return await adapter.fetchDoc.bind(this)(docId, transaction);
+      return await adapter.fetchDoc.bind(this)({
+        docId,
+        transaction,
+        prefix,
+      });
     } catch (err) {
       adapter.logger.error(`[FireModel.js - fetchDoc] ${err.message}`);
       throw err;
@@ -839,22 +891,17 @@ export default class FireModel {
   }
 
   /**
-   * [ADAPTER] Converts an array of Firestore query conditions into Firestore query constraint objects.
-   * - The `constraints` array can include Firestore queries like `where`, `orderBy`, and `limit`.
-   * - Example: `[['where', 'age', '>=', 18], ['orderBy', 'age', 'desc'], ['limit', 10]]`
-   * - Throws an error if an unknown query type is specified.
+   * クエリ条件配列から Firestore 用のクエリオブジェクトを生成します。
+   * Convert query constraints into Firestore query objects.
    *
-   * [ADAPTER] Firestore のクエリ条件の配列を受け取り、Firestore のクエリオブジェクト配列を生成して返します。
-   * - `constraints` 配列には、`where`, `orderBy`, `limit` などの Firestore クエリを指定できます。
-   * - 例：`[['where', 'age', '>=', 18], ['orderBy', 'age', 'desc'], ['limit', 10]]`
-   * - 不明なクエリタイプが指定された場合はエラーをスローします。
+   * - `where`, `orderBy`, `limit` などをサポートします。
+   * - 無効なクエリタイプがあるとエラーになります。
    *
-   * @param {Array} constraints - Array of Firestore query conditions.
-   *                              Firestore のクエリ条件の配列。
-   * @returns {Array<Object>} Array of Firestore query constraint objects.
-   *                          Firestore クエリオブジェクトの配列を返します。
-   * @throws {Error} If an unknown query type is specified.
-   *                 不明なクエリタイプが指定された場合にエラーをスローします。
+   * - Supports Firestore query operations like `where`, `orderBy`, and `limit`.
+   *
+   * @param {Array} constraints - クエリ条件の配列 / Array of Firestore query conditions.
+   * @returns {Array<Object>} クエリ制約オブジェクトの配列 / Array of Firestore query constraint objects.
+   * @throws {Error} 未対応または不明なクエリタイプ指定時 / If an unknown or unsupported query type is specified.
    */
   createQueries(constraints) {
     const adapter = FireModel.getAdapter();
@@ -862,22 +909,18 @@ export default class FireModel {
   }
 
   /**
-   * [ADAPTER] Generates Firestore query objects for N-Gram search using `tokenMap`.
-   * - Creates single and double character tokens from the search string to build Firestore queries.
-   * - Example: `"検索"` → `['検', '索', '検索']`
-   * - Surrogate pair characters (e.g., emojis) are excluded because they are not searchable in `tokenMap`.
+   * `tokenMap` を利用した N-Gram 検索用の Firestore クエリを生成します。
+   * Create Firestore N-Gram queries using `tokenMap`.
    *
-   * [ADAPTER] Firestore の `tokenMap` に基づく N-Gram 検索用のクエリオブジェクトを生成します。
-   * - 検索文字列の 1 文字・2 文字ごとのトークンを作成し、Firestore の `tokenMap` を利用した検索クエリを生成します。
-   * - 例：`"検索"` → `['検', '索', '検索']`
-   * - サロゲートペア文字（絵文字など）は Firestore の `tokenMap` では検索対象としないため除外します。
+   * - 検索文字列から1〜2文字のトークンを生成し、クエリ条件を構築します。
+   * - サロゲートペア文字（絵文字など）は除外されます。
    *
-   * @param {string} constraints - The search string to generate tokens from.
-   *                               検索に使用する文字列。
-   * @returns {Array<Object>} Array of Firestore query constraint objects.
-   *                          Firestore クエリオブジェクトの配列を返します。
-   * @throws {Error} If `constraints` is an empty string.
-   *                 `constraints` が空文字の場合、エラーをスローします。
+   * - Generates single and double-character tokens for search.
+   * - Surrogate pairs are removed for compatibility with Firestore.
+   *
+   * @param {string} constraints - 検索文字列 / The search string.
+   * @returns {Array<Object>} クエリ制約オブジェクトの配列 / Array of Firestore query constraints.
+   * @throws {Error} 空文字列が指定された場合 / If the search string is empty.
    */
   createTokenMapQueries(constraints) {
     const adapter = FireModel.getAdapter();
@@ -885,36 +928,38 @@ export default class FireModel {
   }
 
   /**
-   * [ADAPTER] Retrieves documents from Firestore that match the specified conditions.
-   * - If `constraints` is a string, it performs N-Gram search using `tokenMap`.
-   *   Additional query conditions can be specified using `options`.
-   * - If `constraints` is an array, it runs a query using the provided array of conditions.
+   * クエリに一致する Firestore ドキュメントを取得します。
+   * Fetch Firestore documents matching query conditions.
    *
-   * [ADAPTER] Firestore から条件に一致するドキュメントを取得します。
-   * - 引数 `constraints` が文字列であった場合、`tokenMap` による N-gram 検索が実行されます。
-   *   `options` で追加の条件を指定可能です。
-   * - 引数 `constraints` が配列であった場合は、配列内の各要素で指定された条件をもとにクエリを実行します。
+   * - `constraints` が文字列の場合は `tokenMap` を使用した N-Gram 検索を行います。
+   * - `constraints` が配列の場合は標準クエリ条件として扱われます。
+   * - `options` を指定すれば追加条件の付与が可能です（文字列検索時のみ）。
    *
-   * @param {Array|string} constraints - Query condition array or search string.
-   *                                     クエリ条件の配列または検索用の文字列。
-   * @param {Array} options - Additional query conditions (ignored if `constraints` is an array).
-   *                          追加のクエリ条件の配列（`constraints` が配列の場合は無視されます）。
-   * @param {Object|null} [transaction=null] - Firestore transaction object (optional).
-   *                                           Firestore のトランザクションオブジェクト（オプション）。
-   * @returns {Promise<Array<Object>>} Array of instances initialized with the fetched documents.
-   *                                   取得したドキュメントで初期化されたインスタンスの配列。
-   * @throws {Error} If an unknown query type is specified.
-   *                 不明なクエリタイプが指定された場合にエラーをスローします。
-   * @throws {Error} If the document fetch operation fails.
-   *                 ドキュメントの取得に失敗した場合にエラーをスローします。
+   * - Uses N-Gram if `constraints` is a string.
+   * - Uses standard Firestore query constraints if `constraints` is an array.
+   *
+   * @param {Object} params - パラメータオブジェクト / Parameter object.
+   * @param {Array|string} params.constraints - 検索条件または文字列 / Query array or search string.
+   * @param {Array} params.options - 追加のクエリ条件（省略可）/ Additional constraints (optional).
+   * @param {Object|null} [params.transaction=null] - Firestore トランザクション / Optional transaction.
+   * @param {string|null} [params.prefix=null] - パスのプレフィックス / Optional Firestore path prefix.
+   * @returns {Promise<Array<Object>>} 取得されたドキュメント配列 / Array of matching document instances.
+   * @throws {Error} クエリが無効または取得に失敗した場合 / If query is invalid or fetch fails.
    */
-  async fetchDocs({ constraints = [], options = [] }, transaction = null) {
+  async fetchDocs({
+    constraints = [],
+    options = [],
+    transaction = null,
+    prefix = null,
+  } = {}) {
     const adapter = FireModel.getAdapter();
     try {
-      return await adapter.fetchDocs.bind(this)(
-        { constraints, options },
-        transaction
-      );
+      return await adapter.fetchDocs.bind(this)({
+        constraints,
+        options,
+        transaction,
+        prefix,
+      });
     } catch (err) {
       adapter.logger.error(`[FireModel.js - fetchDocs] ${err.message}`);
       throw err;
@@ -922,25 +967,29 @@ export default class FireModel {
   }
 
   /**
-   * [ADAPTER] Updates the Firestore document using the current property values of the instance.
+   * インスタンスの内容で Firestore ドキュメントを更新します。
+   * Update the Firestore document with current instance values.
    *
-   * [ADAPTER] Firestore ドキュメントを現在のプロパティ値で更新します。
+   * - `transaction` が指定されていればそれを使用します。
+   * - `callBack` で独自の処理を注入可能です。
    *
-   * @param {function|null} transaction - Function for executing within a Firestore transaction (optional, default: `null`).
-   *                                      Firestore のトランザクション処理を行うための関数（省略可能、デフォルトは `null`）。
-   * @param {function|null} callBack - Function for executing custom logic in subclasses (optional, default: `null`).
-   *                                   サブクラスで独自の処理を実行するための関数（省略可能、デフォルトは `null`）。
-   * @returns {Promise<DocumentReference>} Reference to the updated Firestore document.
-   *                                       更新された Firestore ドキュメントの参照。
-   * @throws {Error} If an error occurs during the document update.
-   *                 ドキュメント更新中にエラーが発生した場合にスローされます。
+   * - Updates the document using a transaction if provided.
+   * - Callback can be used for custom logic (e.g., computed fields).
+   *
+   * @param {Object} args - パラメータオブジェクト / Parameter object.
+   * @param {Function|null} [args.transaction=null] - Firestore トランザクション関数 / Optional transaction.
+   * @param {Function|null} [args.callBack=null] - カスタム処理用コールバック / Optional callback.
+   * @param {string|null} [args.prefix=null] - パスのプレフィックス / Optional Firestore path prefix.
+   * @returns {Promise<DocumentReference>} 更新されたドキュメントの参照 / Reference to the updated document.
+   * @throws {Error} 更新処理に失敗した場合 / If the update operation fails.
    */
-  async update({ transaction = null, callBack = null } = {}) {
+  async update({ transaction = null, callBack = null, prefix = null } = {}) {
     const adapter = FireModel.getAdapter();
     try {
       return await adapter.update.bind(this)({
         transaction,
         callBack,
+        prefix,
       });
     } catch (err) {
       adapter.logger.error(`[FireModel.js - update] ${err.message}`);
@@ -949,45 +998,58 @@ export default class FireModel {
   }
 
   /**
-   * [ADAPTER] Checks whether child documents exist based on the conditions defined in the `hasMany` property.
+   * このドキュメントに依存する子コレクションが存在するかを確認します。
+   * Check if this document has any dependent child collections.
    *
-   * [ADAPTER] `hasMany` プロパティにセットされた条件に基づき、現在のドキュメントに依存している
-   * 子ドキュメントが存在しているかどうかを確認します。
+   * - `hasMany` 定義をもとに Firestore 上に存在するか検証します。
+   * - 判定ロジックはアダプターに委譲されます。
    *
-   * @param {function|null} transaction - Function for executing within a Firestore transaction (optional, default: `null`).
-   *                                      Firestore のトランザクション処理を行うための関数（省略可能、デフォルトは `null`）。
-   * @returns {Promise<object|boolean>} If child documents exist, returns the corresponding `hasMany` entry; otherwise returns `false`.
-   *                                    子ドキュメントが存在する場合は `hasMany` の該当項目を返し、存在しない場合は `false` を返します。
-   * @throws {Error} If an error occurs during the Firestore operation.
-   *                 Firestore の操作中にエラーが発生した場合にスローされます。
+   * - Uses `hasMany` to determine dependencies.
+   * - Actual query is delegated to the adapter.
+   *
+   * @param {Object} args - パラメータオブジェクト / Parameter object.
+   * @param {Object|null} [args.transaction=null] - Firestore トランザクション（任意）/ Optional transaction.
+   * @param {string|null} [args.prefix=null] - パスのプレフィックス / Optional Firestore path prefix.
+   * @returns {Promise<Object|boolean>} 子が存在すればその定義、なければ false / Definition object or false.
+   * @throws {Error} アダプターでの検証に失敗した場合 / If adapter fails to check for children.
    */
-  async hasChild(transaction = null) {
+  async hasChild({ transaction = null, prefix = null } = {}) {
     const adapter = FireModel.getAdapter();
-    return adapter.hasChild.bind(this)(transaction);
+    try {
+      return await adapter.hasChild.bind(this)({
+        transaction,
+        prefix,
+      });
+    } catch (err) {
+      adapter.logger.error(`[FireModel.js - hasChild] ${err.message}`);
+      throw err;
+    }
   }
 
   /**
-   * [ADAPTER] Deletes the document corresponding to the current document ID.
-   * - If `logicalDelete` is enabled, the document is archived instead of being permanently deleted.
+   * Firestore ドキュメントを削除またはアーカイブに移動します。
+   * Delete the Firestore document or move it to archive.
    *
-   * [ADAPTER] 現在のドキュメント ID に該当するドキュメントを削除します。
-   * - `logicalDelete` が指定されている場合、削除されたドキュメントは `archive` コレクションに移動されます。
+   * - `logicalDelete` が true の場合は `archive` コレクションに移動されます。
+   * - `callBack` により削除前の処理を挿入できます。
    *
-   * @param {object|null} transaction - Firestore transaction object (optional).
-   *                                    Firestore トランザクションオブジェクト（省略可能）。
-   * @param {function|null} callBack - Function to execute custom logic in subclasses (optional).
-   *                                   サブクラスで独自の処理を実行するための関数（省略可能）。
-   * @returns {Promise<void>} A Promise that resolves when deletion is complete.
-   *                          削除が完了すると解決される Promise。
-   * @throws {Error} If an error occurs during document deletion.
-   *                 ドキュメントの削除中にエラーが発生した場合にスローされます。
+   * - Moves to archive if `logicalDelete` is enabled.
+   * - Supports a callback for pre-deletion logic.
+   *
+   * @param {Object} args - パラメータオブジェクト / Parameter object.
+   * @param {Object|null} [args.transaction=null] - Firestore トランザクション / Optional transaction.
+   * @param {Function|null} [args.callBack=null] - カスタム削除処理用コールバック / Optional custom logic before deletion.
+   * @param {string|null} [args.prefix=null] - パスのプレフィックス / Optional Firestore path prefix.
+   * @returns {Promise<void>} 削除または移動が完了したときに解決される Promise / Promise resolved when deletion/archive is complete.
+   * @throws {Error} 削除処理に失敗した場合 / If deletion fails.
    */
-  async delete({ transaction = null, callBack = null } = {}) {
+  async delete({ transaction = null, callBack = null, prefix = null } = {}) {
     const adapter = FireModel.getAdapter();
     try {
       return await adapter.delete.bind(this)({
         transaction,
         callBack,
+        prefix,
       });
     } catch (err) {
       adapter.logger.error(`[FireModel.js - delete] ${err.message}`);
@@ -996,21 +1058,27 @@ export default class FireModel {
   }
 
   /**
-   * [ADAPTER] Restores a deleted document from the archive collection back to its original collection.
+   * アーカイブされたドキュメントを復元します。
+   * Restore a previously archived document back to its original collection.
    *
-   * [ADAPTER] 削除されたドキュメントをアーカイブコレクションから元のコレクションに復元します。
+   * - `archive` コレクションから元のパスにドキュメントを移動します。
+   * - パスの復元には `prefix` が使用されます。
    *
-   * @param {string} docId - ID of the document to restore.
-   *                         復元するドキュメントの ID。
-   * @returns {Promise<DocumentReference>} Reference to the restored document.
-   *                                       復元されたドキュメントのリファレンス。
-   * @throws {Error} If no document ID is provided, or if the archived document does not exist.
-   *                 ドキュメント ID が指定されていない場合や、復元対象のドキュメントが存在しない場合にエラーをスローします。
+   * - Moves the document from `archive` back to its original collection.
+   *
+   * @param {Object} args - パラメータオブジェクト / Parameter object.
+   * @param {string} args.docId - 復元対象のドキュメント ID / ID of the document to restore.
+   * @param {string|null} [args.prefix=null] - パスのプレフィックス / Optional Firestore path prefix.
+   * @returns {Promise<DocumentReference>} 復元されたドキュメントの参照 / Reference to the restored document.
+   * @throws {Error} `docId` が指定されていない、またはドキュメントが存在しない場合 / If no `docId` is given or document not found.
    */
-  static async restore(docId = null) {
+  static async restore({ docId, prefix = null }) {
     const adapter = FireModel.getAdapter();
     try {
-      return await adapter.restore.bind(this)(docId);
+      return await adapter.restore.bind(this)({
+        docId,
+        prefix,
+      });
     } catch (err) {
       adapter.logger.error(`[FireModel.js - restore] ${err.message}`);
       throw err;
@@ -1018,13 +1086,13 @@ export default class FireModel {
   }
 
   /**
-   * [ADAPTER] Unsubscribes from a Firestore real-time listener.
-   * - If an active listener exists, it will be removed.
+   * Firestore のリアルタイムリスナーを解除します。
+   * Unsubscribe from the Firestore real-time listener.
    *
-   * [ADAPTER] Firestore のリアルタイムリスナーを解除します。
-   * - 現在のリスナーが存在する場合、そのリスナーを解除します。
+   * - インスタンスが保持しているリスナーが存在する場合、解除されます。
+   * - 登録済みリスナーは `listener` プロパティに保持されています。
    *
-   * @returns {void}
+   * - Cancels any active listener stored in `listener`.
    */
   unsubscribe() {
     const adapter = FireModel.getAdapter();
@@ -1037,22 +1105,27 @@ export default class FireModel {
   }
 
   /**
-   * [ADAPTER] Sets a real-time listener on a Firestore document.
-   * - If a listener is already active, it will be unsubscribed before setting a new one.
+   * 指定したドキュメントにリアルタイムリスナーを設定します。
+   * Subscribe to a Firestore document in real-time.
    *
-   * [ADAPTER] Firestore のドキュメントに対するリアルタイムリスナーを設定します。
-   * - 既にリスナーが設定されている場合、そのリスナーを解除してから新しいリスナーを設定します。
+   * - 既存のリスナーが存在すれば解除してから再設定します。
+   * - ドキュメントの変更はインスタンスに即時反映されます。
    *
-   * @param {string} docId - ID of the document to subscribe to.
-   *                         リアルタイムリスナーを設定するドキュメントの ID。
-   * @returns {void}
-   * @throws {Error} If no document ID is provided.
-   *                 ドキュメント ID が指定されていない場合にエラーをスローします。
+   * - Automatically unsubscribes before re-subscribing.
+   * - Updates the instance on document changes.
+   *
+   * @param {Object} args - パラメータオブジェクト / Parameter object.
+   * @param {string} args.docId - 購読対象のドキュメント ID / ID of the document to subscribe to.
+   * @param {string|null} [args.prefix=null] - パスのプレフィックス / Optional Firestore path prefix.
+   * @throws {Error} `docId` が指定されていない場合 / If `docId` is not provided.
    */
-  subscribe(docId = null) {
+  subscribe({ docId, prefix = null }) {
     const adapter = FireModel.getAdapter();
     try {
-      adapter.subscribe.bind(this)(docId);
+      adapter.subscribe.bind(this)({
+        docId,
+        prefix,
+      });
     } catch (err) {
       adapter.logger.error(`[FireModel.js - subscribe] ${err.message}`);
       throw err;
@@ -1060,29 +1133,33 @@ export default class FireModel {
   }
 
   /**
-   * [ADAPTER] Sets up a real-time listener on a Firestore collection to monitor document changes.
-   * - If `constraints` is a string, N-Gram search using `tokenMap` is performed.
-   *   Additional filtering can be specified using `options`.
-   * - If `constraints` is an array, Firestore queries are built based on the specified conditions.
+   * Firestore コレクションに対してリアルタイムリスナーを設定します。
+   * Set up a real-time listener on a Firestore collection.
    *
-   * [ADAPTER] Firestore コレクションに対するリアルタイムリスナーを設定し、ドキュメントの変化を監視します。
-   * - 引数 `constraints` が文字列であった場合、`tokenMap` による N-gram 検索が実行されます。
-   *   追加の条件は `options` で指定可能です。
-   * - 引数 `constraints` が配列であった場合は、配列内の各要素で指定された条件をもとにクエリを実行します。
+   * - `constraints` が文字列であれば `tokenMap` による N-Gram 検索が行われます。
+   * - 配列であれば通常の Firestore クエリ制約が使用されます。
+   * - `options` は検索文字列による条件追加に使用されます。
+   * - 結果は `docs` プロパティに保持されます。
    *
-   * @param {Array|string} constraints - Array of query conditions or a search string.
-   *                                     クエリ条件の配列または検索用の文字列。
-   * @param {Array} options - Additional query conditions (ignored if `constraints` is an array).
-   *                          追加のクエリ条件の配列（`constraints` が配列の場合は無視されます）。
-   * @returns {Array<Object>} An array of document data being watched in real-time.
-   *                          リアルタイムで監視しているドキュメントのデータが格納された配列。
-   * @throws {Error} If an unknown query type is specified.
-   *                 不明なクエリタイプが指定された場合にエラーをスローします。
+   * - Supports N-Gram queries if `constraints` is a string.
+   * - Uses array-based constraints as standard Firestore queries.
+   * - Results are stored in the `docs` array.
+   *
+   * @param {Object} args - パラメータオブジェクト / Parameter object.
+   * @param {Array|string} args.constraints - 検索条件または検索文字列 / Query conditions or a search string.
+   * @param {Array} args.options - 追加のクエリ条件（省略可能）/ Optional extra query conditions.
+   * @param {string|null} [args.prefix=null] - パスのプレフィックス / Optional Firestore path prefix.
+   * @returns {Array<Object>} 購読中のドキュメントデータ配列 / Array of document data being observed in real time.
+   * @throws {Error} 無効なクエリタイプが指定された場合 / If an invalid query type is specified.
    */
-  subscribeDocs(constraints = [], options = []) {
+  subscribeDocs({ constraints = [], options = [], prefix = null } = {}) {
     const adapter = FireModel.getAdapter();
     try {
-      return adapter.subscribeDocs.bind(this)(constraints, options);
+      return adapter.subscribeDocs.bind(this)({
+        constraints,
+        options,
+        prefix,
+      });
     } catch (err) {
       adapter.logger.error(`[FireModel.js - subscribeDocs] ${err.message}`);
       throw err;
