@@ -28,10 +28,32 @@ export default class FireModel {
   /**
    * Customize FireModel behavior.
    * FireModel の動作をカスタマイズします。
-   * @param {Object} config - FireModel に別途注入する設定情報です。
+   *
+   * @param {Object} config - FireModel に注入する設定情報
+   * @param {string} [config.prefix] - Firestore ドキュメントパスとして使われる prefix
+   * @throws {Error} If prefix is not a valid Firestore document path
    */
   static setConfig(config) {
-    FireModel.config = config;
+    const newConfig = { ...config };
+
+    if (newConfig.prefix) {
+      // スラッシュが末尾にない場合は追加
+      if (!newConfig.prefix.endsWith("/")) {
+        newConfig.prefix += "/";
+      }
+
+      // 空要素除去後のセグメントを取得
+      const segments = newConfig.prefix.split("/").filter(Boolean);
+
+      // ドキュメントパスはセグメント数が偶数である必要がある
+      if (segments.length % 2 !== 0) {
+        throw new Error(
+          `Invalid prefix path: "${newConfig.prefix}". Firestore document paths must have an even number of segments.`
+        );
+      }
+    }
+
+    this.config = newConfig;
   }
 
   /**
@@ -40,7 +62,7 @@ export default class FireModel {
    * @returns {Object} - 設定データ
    */
   static getConfig() {
-    return FireModel.config;
+    return this.config;
   }
 
   /**
@@ -54,30 +76,30 @@ export default class FireModel {
    * Returns the Firestore collection path for this model.
    * - The path is constructed using the model's static `config.prefix` and `collectionPath`.
    * - If the first segment of the prefix matches the collection path, the prefix is ignored.
+   * - If the prefix does not end with a slash, a slash is appended automatically.
+   * - If the prefix does not represent a valid Firestore document path (odd segments), an error is thrown.
    *
    * モデルの Firestore コレクションパスを返します。
    * - クラスの static プロパティ `config.prefix` と `collectionPath` を連結して構築されます。
    * - prefix の最初のセグメントが `collectionPath` と一致する場合、prefix は無視されます。
+   * - prefix の末尾にスラッシュがない場合、自動的に追加されます。
+   * - prefix が Firestore のドキュメントパスとして正しくない場合（セグメントが奇数個）、エラーをスローします。
    *
    * @returns {string} The full Firestore collection path.
-   *                   Firestore の完全なコレクションパス。
+   * @throws {Error} If prefix is not a valid Firestore document path.
    */
   static getCollectionPath() {
     const prefix = this.config?.prefix || "";
     const collectionPath = this.collectionPath;
 
-    // プレフィックスをスラッシュで分割し、空でない要素だけを抽出
     const segments = prefix.split("/").filter(Boolean);
 
-    // 最初のセグメントと collectionPath が一致する場合、prefix を無視
     if (segments[0] === collectionPath) {
       return collectionPath;
     }
 
-    // 通常通り prefix + collectionPath を連結して返す
     return `${prefix}${collectionPath}`;
   }
-
   /**
    * If true, auto-numbering is performed with the contents specified in the Autonumber document.
    *
