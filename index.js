@@ -211,7 +211,7 @@ export default class FireModel {
    *
    * - Holds the unsubscribe function returned by Firestore’s `onSnapshot()`.
    */
-  #listener = null;
+  // #listener = null;
 
   /**
    * 現在のリアルタイムリスナー関数を取得または設定します。
@@ -220,10 +220,12 @@ export default class FireModel {
    * @type {Function|null}
    */
   get listener() {
-    return this.#listener;
+    // return this.#listener;
+    return this._listener;
   }
   set listener(v) {
-    this.#listener = v;
+    // this.#listener = v;
+    this._listener = v;
   }
 
   /**
@@ -233,7 +235,7 @@ export default class FireModel {
    * - `subscribeDocs()` によって更新されます。
    * - 各要素はこのモデルのインスタンスです。
    */
-  #docs = [];
+  // #docs = [];
 
   /**
    * 購読中のドキュメントデータを取得または設定します。
@@ -242,10 +244,12 @@ export default class FireModel {
    * @type {Array<Object>}
    */
   get docs() {
-    return this.#docs;
+    // return this.#docs;
+    return this._docs;
   }
   set docs(v) {
-    this.#docs = v;
+    // this.#docs = v;
+    this._docs = v;
   }
 
   /**
@@ -575,6 +579,22 @@ export default class FireModel {
      * - Firestore Timestamp または Date オブジェクトに変換されます。
      */
     this.updatedAt = null;
+
+    // Listener and docs properties, defined as non-enumerable
+    // to prevent them from being saved to Firestore by toObject()
+    Object.defineProperty(this, "_listener", {
+      value: null,
+      writable: true,
+      enumerable: false,
+      configurable: true,
+    });
+
+    Object.defineProperty(this, "_docs", {
+      value: [],
+      writable: true,
+      enumerable: false,
+      configurable: true,
+    });
 
     // classProps に定義されたプロパティを生成
     const classProps = this.constructor.classProps;
