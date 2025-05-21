@@ -286,35 +286,20 @@ export default class FireModel {
 
   /**
    * FireModel の新しいインスタンスを作成します。
-   * Create a new instance of FireModel.
-   *
-   * - `classProps` の定義に基づいてプロパティを初期化します。
-   * - 渡された `item` の値でプロパティをセットします。
-   *
-   * - Initializes properties based on `classProps` definitions.
-   * - Uses `item` to populate instance values.
-   *
+   * - `#initializeCoreProperties()` により、インスタンスの基本的な構造とシステムフィールドをセットアップします。
+   * - `initialize()` により、`classProps` の定義と渡された `item` の値に基づいてプロパティを初期化します。
    * @param {Object} item - 初期化に使用する値を持つオブジェクト / Object containing initial property values.
    */
   constructor(item = {}) {
-    // classProps に定義された内容でプロパティを用意
-    this.#createProperties();
-
-    // 初期化処理を実行
+    this.#initializeCoreProperties();
     this.initialize(item || {});
   }
 
   /**
    * インスタンスのクローンを生成します。
-   * Create a cloned instance of this object.
-   *
    * - 参照を避けたい場合（Vue コンポーネントでの親子間受け渡しなど）に有効です。
    * - Deep clone ではなく、同一クラスの新しいインスタンスとして返されます。
-   *
-   * - Useful for avoiding reference sharing (e.g., in Vue parent-child props).
-   * - Returns a new instance of the same class.
-   *
-   * @returns {this} クローンされた新しいインスタンス / Cloned new instance.
+   * @returns {this} クローンされた新しいインスタンス
    */
   clone() {
     return new this.constructor(this);
@@ -322,15 +307,10 @@ export default class FireModel {
 
   /**
    * Firestore 用のコンバーターを提供します。
-   * Provide a Firestore data converter for this class.
-   *
    * - Firestore との相互変換に使用します。
    * - `toFirestore`: インスタンス → プレーンオブジェクト
    * - `fromFirestore`: スナップショット → クラスインスタンス
-   *
-   * - Used for serializing and deserializing Firestore documents.
-   *
-   * @returns {Object} `toFirestore`, `fromFirestore` を持つ変換オブジェクト / Converter object for Firestore.
+   * @returns {Object} `toFirestore`, `fromFirestore` を持つ変換オブジェクト
    */
   static converter() {
     return {
@@ -341,17 +321,11 @@ export default class FireModel {
 
   /**
    * Firestore スナップショットをクラスインスタンスに変換します。
-   * Convert a Firestore snapshot to a class instance.
-   *
    * - カスタムクラス指定がある場合、自動でインスタンス化されます。
    * - 配列内のオブジェクトにも再帰的に適用されます。
-   *
-   * - Automatically instantiates nested custom classes if defined.
-   * - Handles arrays with custom class objects.
-   *
-   * @param {DocumentSnapshot} snapshot - Firestore ドキュメントスナップショット / Firestore document snapshot.
-   * @returns {FireModel} インスタンス化されたオブジェクト / Instance populated from Firestore data.
-   * @throws {Error} スナップショットが無効な場合 / If the snapshot is invalid or has no data.
+   * @param {DocumentSnapshot} snapshot - Firestore ドキュメントスナップショット
+   * @returns {FireModel} インスタンス化されたオブジェクト
+   * @throws {Error} スナップショットが無効な場合
    */
   static fromFirestore(snapshot) {
     const data = snapshot?.data() ?? null;
@@ -424,6 +398,8 @@ export default class FireModel {
         : updatedAt?.toDate
         ? updatedAt.toDate()
         : null;
+
+    this._setDefaultValueFromClassProps();
 
     // createdAt, updatedAt 以外の処理
     if (data) {
@@ -539,49 +515,28 @@ export default class FireModel {
   }
 
   /**
-   * `classProps` に基づいてプロパティを定義します。
-   * Define properties based on the `classProps` definition.
-   *
-   * - `docId`, `uid`, `createdAt`, `updatedAt` は常に生成されます。
-   * - `default` 値が関数であればその戻り値が使用されます。
-   * - `tokenFields` に基づいて `tokenMap` も自動的に生成されます。
-   *
-   * - Creates all model fields with default values.
-   * - Adds a dynamic `tokenMap` getter/setter if `tokenFields` is set.
+   * FireModel インスタンスが必要とする中核的なプロパティを初期化します。
+   * - システムフィールド (`docId`, `uid`, `createdAt`, `updatedAt`) を初期値で設定します。
+   * - 内部プロパティ (`_listener`, `_docs`) を非列挙として定義します。
+   * - `tokenFields` に基づいて `tokenMap` のゲッター/セッターも自動的に定義されます。
+   * - このメソッドは、コンストラクタ内で `initialize` メソッドがユーザー定義の `classProps` や
+   *   入力データを処理する前に、インスタンスの基本的な構造を準備します。
    */
-  #createProperties() {
-    /**
-     * Firestore ドキュメントの ID。
-     * Document ID in Firestore.
-     *
-     * - Firestore により自動生成されるか、明示的に指定できます。
-     */
+  #initializeCoreProperties() {
+    /** Firestore のドキュメントID */
     this.docId = "";
 
-    /**
-     * ユーザーIDなど、操作主体を表す任意の ID。
-     * ID representing the user or entity responsible for the document.
-     */
+    /** ドキュメントの最終更新者を表す ID */
     this.uid = "";
 
-    /**
-     * ドキュメントの作成日時。
-     * Timestamp of when the document was created.
-     *
-     * - Firestore Timestamp または Date オブジェクトに変換されます。
-     */
+    /** ドキュメントの作成日時 */
     this.createdAt = null;
 
-    /**
-     * ドキュメントの最終更新日時。
-     * Timestamp of the most recent document update.
-     *
-     * - Firestore Timestamp または Date オブジェクトに変換されます。
-     */
+    /** ドキュメントの更新日時 */
     this.updatedAt = null;
 
-    // Listener and docs properties, defined as non-enumerable
-    // to prevent them from being saved to Firestore by toObject()
+    /** リアルタイムリスナー用変数 */
+    // `toObject()` で無視できるよう、enumerable を false に
     Object.defineProperty(this, "_listener", {
       value: null,
       writable: true,
@@ -589,6 +544,8 @@ export default class FireModel {
       configurable: true,
     });
 
+    /** 購読中のドキュメント配列 */
+    // `toObject()` で無視できるよう、enumerable を false に */
     Object.defineProperty(this, "_docs", {
       value: [],
       writable: true,
@@ -596,15 +553,8 @@ export default class FireModel {
       configurable: true,
     });
 
-    // classProps に定義されたプロパティを生成
-    const classProps = this.constructor.classProps;
-    Object.keys(classProps).forEach((key) => {
-      const defaultValue = classProps[key].default;
-      this[key] =
-        typeof defaultValue === "function" ? defaultValue() : defaultValue;
-    });
-
-    // tokenFields が配列であり、要素が含まれている場合のみ tokenMap を生成
+    /** tokenMap */
+    // tokenFields が配列であり、要素が含まれている場合のみ
     if (
       Array.isArray(this.constructor.tokenFields) &&
       this.constructor.tokenFields.length
@@ -734,6 +684,22 @@ export default class FireModel {
   #setTokenMap(value) {
     // No-op setter to avoid errors during initialization.
     // This can be customized if needed to handle specific logic.
+  }
+
+  /**
+   * インスタンスの各プロパティの値を classProps の default で
+   * 定義されている値に更新します。
+   * - classProps に定義されていてインスタンスに実装されていない
+   *   プロパティが存在すれば、ここで実装されます。
+   */
+  _setDefaultValueFromClassProps() {
+    const classProps = this.constructor.classProps || {};
+    Object.keys(classProps).forEach((key) => {
+      const propConfig = classProps[key];
+      const defaultValue = propConfig.default;
+      this[key] =
+        typeof defaultValue === "function" ? defaultValue() : defaultValue;
+    });
   }
 
   /**
