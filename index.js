@@ -6,7 +6,14 @@ export default class FireModel {
    * - 通常は `setAdapter()` で設定されます。
    * - ClientAdapter または ServerAdapter を受け入れます。
    */
-  static adapter = null;
+  static _adapter = null; // Renamed to avoid conflict with potential instance property
+  static get type() {
+    // Add static keyword here
+    if (FireModel._adapter) {
+      return FireModel._adapter.type; // Access as a property, not a function
+    }
+    return null; // Or undefined, or throw an error if adapter must be set
+  }
 
   /**
    * FireModel の動作設定。
@@ -274,7 +281,7 @@ export default class FireModel {
    * @param {Object} adapter - Firestore CRUD アダプターインスタンス / Firestore CRUD adapter instance.
    */
   static setAdapter(adapter) {
-    FireModel.adapter = adapter;
+    FireModel._adapter = adapter;
   }
 
   /**
@@ -285,12 +292,12 @@ export default class FireModel {
    * @throws {Error} アダプターが未設定の場合 / If no adapter has been set via `setAdapter()`.
    */
   static getAdapter() {
-    if (!FireModel.adapter) {
+    if (!FireModel._adapter) {
       throw new Error(
         "Firestore adapter is not set. Call FireModel.setAdapter first."
       );
     }
-    return FireModel.adapter;
+    return FireModel._adapter;
   }
 
   /**
