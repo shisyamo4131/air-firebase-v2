@@ -151,6 +151,15 @@ export default class FireModel {
   static classProps = {};
 
   /**
+   * classProps に定義されたプロパティ定義情報を配列にして返します。
+   */
+  static get schema() {
+    return Object.entries(this.classProps).map(([key, value]) => {
+      return { key, ...value };
+    });
+  }
+
+  /**
    * このモデルが親となる子コレクションの定義配列。
    * Defines child collections that depend on this model's documents.
    *
