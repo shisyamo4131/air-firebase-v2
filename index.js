@@ -465,9 +465,19 @@ export default class FireModel {
       });
     }
 
+    // サブクラスで追加定義された初期化処理を実行
+    this.afterInitialize();
+
     // 初期化処理完了後、編集前の状態を _beforeData プロパティとして提供
     this._beforeData = this.toObject();
   }
+
+  /**
+   * initialize メソッドの最後に呼び出されるフック。
+   * サブクラスで特有のゲッタープロパティを追加するなど、
+   * 追加の初期化処理を実装するために使用します。
+   */
+  afterInitialize() {}
 
   /**
    * インスタンスをプレーンなオブジェクトに変換します。
