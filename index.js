@@ -433,7 +433,7 @@ export default class FireModel {
 
             case Object: {
               const customClass = classProp?.customClass;
-              if (customClass) {
+              if (customClass && data[key]) {
                 this[key] = new customClass(data[key]);
               } else if (data[key]?.toDate) {
                 this[key] = data[key].toDate();
