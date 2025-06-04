@@ -379,16 +379,16 @@ export default class FireModel {
 
   /**
    * プロパティを `classProps` の定義に基づいて初期化します。
-   * Initialize instance properties based on `classProps`.
    *
    * - `docId`, `uid`, `createdAt`, `updatedAt` は常にセットされます。
    * - `createdAt`, `updatedAt` は Date オブジェクトに変換されます。
    * - カスタムクラスや配列も適切に変換・コピーされます。
    * - 初期状態は `_beforeData` に保持されます。
    *
-   * - Ensures system fields like `docId`, `createdAt` are always initialized.
-   * - Dates are converted from Firestore Timestamps if needed.
-   * - Handles deep copy or class instantiation for complex fields.
+   * 2025-06-04
+   * - classProp.type で Date は許容しないこと。
+   * - Firestore の日付フィールドは timestamp 型であり、JS の Date オブジェクトとは似て非なるもの。
+   * - アプリ側と Firestoe 側とでデータを対応させることを前提にすると Object として扱うことが最良と思われる。
    *
    * @param {Object} item - 初期化に使用する値のオブジェクト / Object containing initial values.
    */
@@ -435,10 +435,16 @@ export default class FireModel {
               const customClass = classProp?.customClass;
               if (customClass && data[key]) {
                 this[key] = new customClass(data[key]);
+              } else if (data[key] instanceof Date) {
+                // Dateオブジェクトの場合はそのまま代入
+                this[key] = data[key];
               } else if (data[key]?.toDate) {
                 this[key] = data[key].toDate();
               } else {
-                this[key] = JSON.parse(JSON.stringify(data[key]));
+                // DateでもTimestampでもないObjectの場合、ディープコピー (nullやundefinedも考慮)
+                this[key] = data[key]
+                  ? JSON.parse(JSON.stringify(data[key]))
+                  : data[key];
               }
               break;
             }
