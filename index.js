@@ -767,6 +767,19 @@ export default class FireModel {
   }
 
   /**
+   * ドキュメント作成前または更新前に実行されるフック処理です。
+   * - 作成前、更新前で共通した処理がある場合に使用することを前提に用意された関数です。
+   * - beforeCreate, beforeUpdate の直後に呼び出されます。
+   * - 通常はサブクラスでオーバーライドして使用します。
+   * - このクラスでは何も行いません（デフォルト実装）。
+   *
+   * @returns {Promise<void>} 解決済みの Promise / A resolved Promise.
+   */
+  beforeEdit() {
+    return Promise.resolve();
+  }
+
+  /**
    * ドキュメント削除前に実行されるフック処理です。
    * Hook executed before deleting a document.
    *
