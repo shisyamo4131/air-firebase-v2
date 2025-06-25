@@ -316,9 +316,12 @@ export default class FireModel {
    * - 参照を避けたい場合（Vue コンポーネントでの親子間受け渡しなど）に有効です。
    * - Deep clone ではなく、同一クラスの新しいインスタンスとして返されます。
    * @returns {this} クローンされた新しいインスタンス
+   *
+   * @update 2025-06-25 参照を完全に切り離すため、this.toObject() を引数に渡すよう修正。
    */
   clone() {
-    return new this.constructor(this);
+    // return new this.constructor(this);
+    return new this.constructor(this.toObject());
   }
 
   /**
@@ -487,65 +490,108 @@ export default class FireModel {
 
   /**
    * インスタンスをプレーンなオブジェクトに変換します。
-   * Convert the instance to a plain JavaScript object.
    *
    * - `enumerable` なプロパティのみが含まれます。
    * - `toObject()` を持つオブジェクトは再帰的に変換されます。
+   * - その他のオブジェクトは参照を切り離した状態で変換されます。
    * - `_beforeData` は出力から除外されます。
    *
-   * - Only `enumerable` properties are included.
-   * - Recursively converts nested objects and arrays.
-   *
    * @returns {Object} 変換後のプレーンオブジェクト / Plain JavaScript object representing the instance.
+   *
+   * @update 2025-06-25 Date オブジェクトや配列内のオブジェクトの参照が切り離されない状態で変換されていたのを修正。
    */
+  // toObject() {
+  //   // 最終的に返すオブジェクトを用意
+  //   const obj = {};
+
+  //   // 当該インスタンスのプロパティ記述子をすべて取得
+  //   const properties = Object.getOwnPropertyDescriptors(this);
+  //   Object.entries(properties).forEach(([key, descriptor]) => {
+  //     // enumerable であるプロパティのみを処理
+  //     if (descriptor.enumerable) {
+  //       const value = this[key];
+
+  //       // プロパティ値が toObject() を有していれば再帰的にこれを呼び出す
+  //       if (typeof value?.toObject === "function") {
+  //         obj[key] = value.toObject();
+  //       }
+
+  //       // プロパティ値が配列の場合、各要素について処理
+  //       else if (Array.isArray(value)) {
+  //         obj[key] = value.map((element) => {
+  //           // 要素が toObject() を有していれば再帰的にこれを呼び出す
+  //           if (typeof element?.toObject === "function") {
+  //             return element.toObject();
+  //           }
+
+  //           // オブジェクトであればディープコピー
+  //           else if (typeof element === "object" && element !== null) {
+  //             return JSON.parse(JSON.stringify(element));
+  //           }
+
+  //           // プリミティブ型であればそのままセット
+  //           else {
+  //             return element;
+  //           }
+  //         });
+  //       }
+
+  //       // プロパティ値が toObject() を有しておらず、配列でもない場合はそのまま値をセット
+  //       else {
+  //         obj[key] = value;
+  //       }
+  //     }
+  //   });
+
+  //   // initialize で生成された _beforeData を削除して返す
+  //   const { _beforeData, ...others } = obj;
+  //   return others;
+  // }
   toObject() {
-    // 最終的に返すオブジェクトを用意
     const obj = {};
 
-    // 当該インスタンスのプロパティ記述子をすべて取得
-    const properties = Object.getOwnPropertyDescriptors(this);
-    Object.entries(properties).forEach(([key, descriptor]) => {
-      // enumerable であるプロパティのみを処理
-      if (descriptor.enumerable) {
-        const value = this[key];
+    // this の列挙可能なプロパティを処理
+    for (const key of Object.keys(this)) {
+      const value = this[key];
 
-        // プロパティ値が toObject() を有していれば再帰的にこれを呼び出す
-        if (typeof value?.toObject === "function") {
-          obj[key] = value.toObject();
-        }
-
-        // プロパティ値が配列の場合、各要素について処理
-        else if (Array.isArray(value)) {
-          obj[key] = value.map((element) => {
-            // 要素が toObject() を有していれば再帰的にこれを呼び出す
-            if (typeof element?.toObject === "function") {
-              return element.toObject();
-            }
-
-            // オブジェクトであればディープコピー
-            else if (typeof element === "object" && element !== null) {
-              return JSON.parse(JSON.stringify(element));
-            }
-
-            // プリミティブ型であればそのままセット
-            else {
-              return element;
-            }
-          });
-        }
-
-        // プロパティ値が toObject() を有しておらず、配列でもない場合はそのまま値をセット
-        else {
-          obj[key] = value;
-        }
+      // カスタム toObject メソッドがあれば再帰呼び出し
+      if (value && typeof value.toObject === "function") {
+        obj[key] = value.toObject();
       }
-    });
+      // Date オブジェクトはクローンを作成して参照を切り離し
+      else if (value instanceof Date) {
+        obj[key] = new Date(value.getTime());
+      }
+      // 配列要素は各要素ごとに処理
+      else if (Array.isArray(value)) {
+        obj[key] = value.map((element) => {
+          if (element && typeof element.toObject === "function") {
+            return element.toObject();
+          }
+          if (element instanceof Date) {
+            return new Date(element.getTime());
+          }
+          if (typeof element === "object" && element !== null) {
+            return { ...element };
+          }
+          return element;
+        });
+      }
+      // その他のオブジェクトは浅いコピーで参照を切り離し
+      else if (typeof value === "object" && value !== null) {
+        obj[key] = { ...value };
+      }
+      // プリミティブ型はそのままセット
+      else {
+        obj[key] = value;
+      }
+    }
 
-    // initialize で生成された _beforeData を削除して返す
-    const { _beforeData, ...others } = obj;
-    return others;
+    // 内部データ _beforeData を除去
+    delete obj._beforeData;
+
+    return obj;
   }
-
   /**
    * FireModel インスタンスが必要とする中核的なプロパティを初期化します。
    * - システムフィールド (`docId`, `uid`, `createdAt`, `updatedAt`) を初期値で設定します。
