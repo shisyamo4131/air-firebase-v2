@@ -2,65 +2,74 @@
  * @file ./src/BaseClass.js
  * @description FireModel のベースとなるクラスです。
  * - FireModel のサブクラスで実装されるオブジェクト型プロパティを定義するクラスのベースクラスとしても機能します。
- * - toObject(): インスタンスをプレーンなオブジェクトに変換する機能を提供します。
+ * - クラスで定義するオブジェクト型のプロパティがネストしたオブジェクトを有する場合は BaseClass を継承した
+ *   サブクラスをプロパティに設定するべきです。
+ * @function
+ * - toObject(): インスタンスをプレーンなオブジェクトに変換して返します。
+ * - clone(): インスタンスの複製を返します。
  */
 export class BaseClass {
   /**
+   * 任意の値をクローンします。
+   * - null または undefined はそのまま返却します。
+   * - 独自クラスのインスタンスは toObject() を呼び出して複製します。
+   * - Date オブジェクトは新規インスタンスを生成して複製します。
+   * - 配列は各要素を再帰的にクローンして複製します。
+   * - その他のオブジェクトはシャローコピーを行います。
+   * - プリミティブ値（文字列・数値・真偽値など）はそのまま返却します。
+   *
+   * @param {*} value クローン対象の値
+   * @returns {*} クローンされた値
+   */
+  static _cloneValue(value) {
+    // null や undefined はそのまま返す
+    if (value == null) return value;
+
+    // カスタムクラスのインスタンスなら toObject() を呼ぶ
+    if (typeof value.toObject === "function") {
+      return value.toObject();
+    }
+
+    // Date はクローンを作成
+    if (value instanceof Date) {
+      return new Date(value.getTime());
+    }
+
+    // 配列は要素ごとに再帰クローン
+    if (Array.isArray(value)) {
+      return value.map((v) => this._cloneValue(v));
+    }
+
+    // それ以外のオブジェクトはシャローコピー
+    if (typeof value === "object") {
+      return { ...value };
+    }
+
+    // プリミティブ型はそのまま返す
+    return value;
+  }
+
+  /**
    * インスタンスをプレーンなオブジェクトに変換します。
    * - 列挙可能 (enumerable = true) なプロパティのみが変換の対象です。
-   * - プロパティの値が toObject() を有している場合はこれを実行します。（再帰呼び出し）
-   * - Date オブジェクトはクローンを作成して参照が切り離されます。
-   * - その他の配列を除くオブジェクトはシャローコピーされます。
-   * - 配列は各要素ごとに上記の条件で処理されます。
    *
-   * NOTE:
-   * 原則として参照を切り離した状態のオブジェクトを返しますが、
-   * プロパティがネストされたオブジェクトで、かつ toObject() を有さない、
-   * または Date オブジェクトである場合に、これらはシャローコピーされるため
-   * 参照が切り離されません。
-   * プロパティにオブジェクトを定義する場合は toObject() を有するクラスとするべきです。
    * @returns {object} - プレーンなオブジェクトに変換されたインスタンス
    */
   toObject() {
-    const obj = {};
+    return Object.keys(this).reduce((obj, key) => {
+      obj[key] = this.constructor._cloneValue(this[key]);
+      return obj;
+    }, {});
+  }
 
-    // this の列挙可能なプロパティを処理
-    for (const key of Object.keys(this)) {
-      const value = this[key];
-
-      // カスタム toObject メソッドがあれば再帰呼び出し
-      if (value && typeof value.toObject === "function") {
-        obj[key] = value.toObject();
-      }
-      // Date オブジェクトはクローンを作成して参照を切り離し
-      else if (value instanceof Date) {
-        obj[key] = new Date(value.getTime());
-      }
-      // 配列要素は各要素ごとに処理
-      else if (Array.isArray(value)) {
-        obj[key] = value.map((element) => {
-          if (element && typeof element.toObject === "function") {
-            return element.toObject();
-          }
-          if (element instanceof Date) {
-            return new Date(element.getTime());
-          }
-          if (typeof element === "object" && element !== null) {
-            return { ...element };
-          }
-          return element;
-        });
-      }
-      // その他のオブジェクトは浅いコピーで参照を切り離し
-      else if (typeof value === "object" && value !== null) {
-        obj[key] = { ...value };
-      }
-      // プリミティブ型はそのままセット
-      else {
-        obj[key] = value;
-      }
-    }
-
-    return obj;
+  /**
+   * インスタンスのクローンを生成します。
+   * - 参照を避けたい場合（Vue コンポーネントでの親子間受け渡しなど）に有効です。
+   * - Deep clone ではなく、同一クラスの新しいインスタンスとして返されます。
+   *
+   * @returns {this} クローンされた新しいインスタンス
+   */
+  clone() {
+    return new this.constructor(this.toObject());
   }
 }

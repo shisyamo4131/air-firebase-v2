@@ -291,19 +291,6 @@ export default class FireModel extends BaseClass {
   }
 
   /**
-   * インスタンスのクローンを生成します。
-   * - 参照を避けたい場合（Vue コンポーネントでの親子間受け渡しなど）に有効です。
-   * - Deep clone ではなく、同一クラスの新しいインスタンスとして返されます。
-   * @returns {this} クローンされた新しいインスタンス
-   *
-   * @update 2025-06-25 参照を完全に切り離すため、this.toObject() を引数に渡すよう修正。
-   */
-  clone() {
-    // return new this.constructor(this);
-    return new this.constructor(this.toObject());
-  }
-
-  /**
    * Firestore 用のコンバーターを提供します。
    * - Firestore との相互変換に使用します。
    * - `toFirestore`: インスタンス → プレーンオブジェクト
