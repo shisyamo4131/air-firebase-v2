@@ -1,3 +1,5 @@
+import { generateTokenMap } from "./utils/tokenMap";
+
 /**
  * @file ./src/BaseClass.js
  * @description FireModel のベースとなるクラスです。
@@ -9,6 +11,30 @@
  * - clone(): インスタンスの複製を返します。
  */
 export class BaseClass {
+  /** tokenMap 生成対象のプロパティ名リスト */
+  static tokenFields = [];
+
+  constructor() {
+    /** tokenMap */
+    // tokenFields が配列であり、要素が含まれている場合のみ
+    if (
+      Array.isArray(this.constructor.tokenFields) &&
+      this.constructor.tokenFields.length
+    ) {
+      Object.defineProperties(this, {
+        tokenMap: {
+          enumerable: true,
+          configurable: true,
+          // get: this._generateTokenMap.bind(this),
+          get: () => generateTokenMap(this.constructor.tokenFields, this),
+          set: (v) => {
+            /** No-op */
+          },
+        },
+      });
+    }
+  }
+
   /**
    * 任意の値をクローンします。
    * - null または undefined はそのまま返却します。

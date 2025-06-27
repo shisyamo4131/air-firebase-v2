@@ -203,24 +203,6 @@ export default class FireModel extends BaseClass {
   static hasMany = [];
 
   /**
-   * `tokenMap` を生成する対象フィールドのリスト。
-   * List of fields used to generate a `tokenMap` for N-Gram search.
-   *
-   * - 指定されたフィールド値から1文字・2文字のトークンを生成します。
-   * - 生成されたトークンは、`tokenMap` フィールドに `{ token: true }` 形式で保存されます。
-   * - サロゲートペア（絵文字など）、特殊文字、空白などは除外されます。
-   * - Firestore の全文検索機能を補完する目的で使用されます。
-   *
-   * - Generates 1- and 2-character tokens from each field value.
-   * - Tokens are stored in `tokenMap` as `{ token: true }` for Firestore querying.
-   * - Used to implement efficient text search.
-   *
-   * 例 / Example:
-   * tokenFields = ["name", "email"];
-   */
-  static tokenFields = [];
-
-  /**
    * 現在のリアルタイムリスナー関数を取得または設定します。
    * Get or set the current Firestore listener function.
    *
@@ -506,22 +488,6 @@ export default class FireModel extends BaseClass {
       enumerable: false,
       configurable: true,
     });
-
-    /** tokenMap */
-    // tokenFields が配列であり、要素が含まれている場合のみ
-    if (
-      Array.isArray(this.constructor.tokenFields) &&
-      this.constructor.tokenFields.length
-    ) {
-      Object.defineProperties(this, {
-        tokenMap: {
-          enumerable: true,
-          configurable: true,
-          get: this._generateTokenMap.bind(this),
-          set: this._setTokenMap.bind(this),
-        },
-      });
-    }
   }
 
   /**
@@ -577,67 +543,6 @@ export default class FireModel extends BaseClass {
         throw new Error(`Invalid value at ${key}. value: ${this[key]}`);
       }
     });
-  }
-
-  /**
-   * `tokenFields` の値から `tokenMap` を生成します。
-   * Generate a `tokenMap` based on values of `tokenFields`.
-   *
-   * - 特殊文字・空白などは除去されます。
-   * - 1文字および2文字のトークンが生成されます。
-   * - トークンは {token: true} の形式で返されます。
-   *
-   * - Removes special characters and spaces before tokenizing.
-   * - Useful for building Firestore-compatible N-Gram queries.
-   *
-   * @returns {Object|null} 生成されたトークンマップ（対象がない場合は null）/ Generated token map or `null` if none created.
-   */
-  _generateTokenMap() {
-    if (
-      !Array.isArray(this.constructor.tokenFields) ||
-      this.constructor.tokenFields.length === 0
-    ) {
-      return null;
-    }
-
-    const arr = [];
-    this.constructor.tokenFields.forEach((fieldName) => {
-      if (
-        fieldName in this &&
-        typeof this[fieldName] === "string" &&
-        this[fieldName].length > 0
-      ) {
-        const target = this[fieldName].replace(
-          /[\uD800-\uDBFF]|[\uDC00-\uDFFF]|~|\*|\[|\]|\s+/g,
-          ""
-        );
-
-        for (let i = 0; i < target.length; i++) {
-          arr.push([target.substring(i, i + 1), true]);
-        }
-        for (let i = 0; i < target.length - 1; i++) {
-          arr.push([target.substring(i, i + 2), true]);
-        }
-      }
-    });
-
-    return arr.length > 0 ? Object.fromEntries(arr) : null;
-  }
-
-  /**
-   * `tokenMap` のセッター（No-op 実装）。
-   * No-op setter for `tokenMap`.
-   *
-   * - 初期化エラー防止のために存在します。
-   * - 必要に応じてオーバーライド可能です。
-   *
-   * - Present to avoid assignment errors; can be customized.
-   *
-   * @param {Object} value - セットされる（が処理されない）値 / The value to set (currently ignored).
-   */
-  _setTokenMap(value) {
-    // No-op setter to avoid errors during initialization.
-    // This can be customized if needed to handle specific logic.
   }
 
   /**
