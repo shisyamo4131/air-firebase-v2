@@ -221,39 +221,17 @@ export default class FireModel extends BaseClass {
   static tokenFields = [];
 
   /**
-   * ドキュメント購読のためのリアルタイムリスナー関数。
-   * Firestore unsubscribe function for document listener.
-   *
-   * - `subscribe()` により設定され、`unsubscribe()` により解除されます。
-   * - アクティブなリスナーが存在する場合に保持されます。
-   *
-   * - Holds the unsubscribe function returned by Firestore’s `onSnapshot()`.
-   */
-  // #listener = null;
-
-  /**
    * 現在のリアルタイムリスナー関数を取得または設定します。
    * Get or set the current Firestore listener function.
    *
    * @type {Function|null}
    */
   get listener() {
-    // return this.#listener;
     return this._listener;
   }
   set listener(v) {
-    // this.#listener = v;
     this._listener = v;
   }
-
-  /**
-   * `subscribeDocs()` によってリアルタイム購読されたドキュメント配列。
-   * Array of documents fetched through real-time collection subscription.
-   *
-   * - `subscribeDocs()` によって更新されます。
-   * - 各要素はこのモデルのインスタンスです。
-   */
-  // #docs = [];
 
   /**
    * 購読中のドキュメントデータを取得または設定します。
@@ -262,11 +240,9 @@ export default class FireModel extends BaseClass {
    * @type {Array<Object>}
    */
   get docs() {
-    // return this.#docs;
     return this._docs;
   }
   set docs(v) {
-    // this.#docs = v;
     this._docs = v;
   }
 
@@ -304,13 +280,13 @@ export default class FireModel extends BaseClass {
 
   /**
    * FireModel の新しいインスタンスを作成します。
-   * - `#initializeCoreProperties()` により、インスタンスの基本的な構造とシステムフィールドをセットアップします。
+   * - `_initializeCoreProperties()` により、インスタンスの基本的な構造とシステムフィールドをセットアップします。
    * - `initialize()` により、`classProps` の定義と渡された `item` の値に基づいてプロパティを初期化します。
    * @param {Object} item - 初期化に使用する値を持つオブジェクト / Object containing initial property values.
    */
   constructor(item = {}) {
     super();
-    this.#initializeCoreProperties();
+    this._initializeCoreProperties();
     this.initialize(item || {});
   }
 
@@ -513,7 +489,7 @@ export default class FireModel extends BaseClass {
    * - このメソッドは、コンストラクタ内で `initialize` メソッドがユーザー定義の `classProps` や
    *   入力データを処理する前に、インスタンスの基本的な構造を準備します。
    */
-  #initializeCoreProperties() {
+  _initializeCoreProperties() {
     /** Firestore のドキュメントID */
     this.docId = "";
 
@@ -554,8 +530,8 @@ export default class FireModel extends BaseClass {
         tokenMap: {
           enumerable: true,
           configurable: true,
-          get: this.#generateTokenMap.bind(this),
-          set: this.#setTokenMap.bind(this),
+          get: this._generateTokenMap.bind(this),
+          set: this._setTokenMap.bind(this),
         },
       });
     }
@@ -629,7 +605,7 @@ export default class FireModel extends BaseClass {
    *
    * @returns {Object|null} 生成されたトークンマップ（対象がない場合は null）/ Generated token map or `null` if none created.
    */
-  #generateTokenMap() {
+  _generateTokenMap() {
     if (
       !Array.isArray(this.constructor.tokenFields) ||
       this.constructor.tokenFields.length === 0
@@ -672,7 +648,7 @@ export default class FireModel extends BaseClass {
    *
    * @param {Object} value - セットされる（が処理されない）値 / The value to set (currently ignored).
    */
-  #setTokenMap(value) {
+  _setTokenMap(value) {
     // No-op setter to avoid errors during initialization.
     // This can be customized if needed to handle specific logic.
   }
