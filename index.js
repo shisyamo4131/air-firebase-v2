@@ -1,4 +1,5 @@
 import { BaseClass } from "./src/BaseClass.js";
+export { BaseClass };
 
 /**
  * @file ./src/FireModel.js
