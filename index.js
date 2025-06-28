@@ -1,22 +1,50 @@
 import { BaseClass } from "./src/BaseClass.js";
 
+/**
+ * @file ./src/FireModel.js
+ * @description Firestore ドキュメント用のカスタムクラスとなるベースクラス
+ * - FireModel への CRUD 機能も提供します。（実態はアダプター）
+ */
 export default class FireModel extends BaseClass {
   /**
    * Firestore の CRUD 機能を注入するアダプター。
-   * - 通常は `setAdapter()` で設定されます。
-   * - ClientAdapter または ServerAdapter を受け入れます。
+   * `setAdapter` を使って `ClientAdapter` または `ServerAdapter` をセットします。
    */
   static _adapter = null;
-  static get type() {
-    // Add static keyword here
-    if (FireModel._adapter) {
-      return FireModel._adapter.type; // Access as a property, not a function
-    }
-    return null; // Or undefined, or throw an error if adapter must be set
+
+  /**
+   * FireModel にアダプターを設定します。
+   * @param {Object} adapter - Firestore CRUD アダプターインスタンス
+   */
+  static setAdapter(adapter) {
+    FireModel._adapter = adapter;
   }
 
   /**
-   * FireModel の動作設定。
+   * 現在設定されている Firestore アダプターを返します。
+   * @returns {Object} 設定されたアダプターインスタンス
+   * @throws {Error} アダプターが未設定の場合
+   */
+  static getAdapter() {
+    if (!FireModel._adapter) {
+      throw new Error(
+        "Firestore adapter is not set. Call FireModel.setAdapter first."
+      );
+    }
+    return FireModel._adapter;
+  }
+
+  /**
+   * 現在設定されている Firestore アダプターのタイプを返します。
+   * @returns {'CLIENT'|'SERVER'} - Firestore アダプターのタイプを表す文字列
+   */
+  static get type() {
+    if (FireModel._adapter) return FireModel._adapter.type;
+    return null;
+  }
+
+  /**
+   * FireModel の動作設定です。
    * - `setConfig()` を通じて注入されます。
    * - 例：パスプレフィックスなど。
    */
@@ -111,26 +139,6 @@ export default class FireModel extends BaseClass {
   static logicalDelete = false;
 
   /**
-   * モデルが持つプロパティの定義オブジェクト。
-   * 各プロパティに以下の構成が指定できます：
-   * - `type`: プロパティのデータ型（String, Number, Boolean, Object, Array）
-   * - `default`: 初期値または初期化関数
-   * - `required`: ドキュメント作成・更新時に必須かどうか（省略可）
-   * - `customClass`: type が Object または Array の場合、オブジェクトを指定クラスのインスタンスに変換
-   * - `validator`: 値に対して追加のバリデーション関数を適用
-   *
-   * 例:
-   * classProps = {
-   *   name: { type: String, default: "", required: true },
-   *   age: { type: Number, default: 0 },
-   *   isActive: { type: Boolean, default: false },
-   *   address: { type: Object, default: {}, customClass: Address },
-   *   tags: { type: Array, default: () => [], customClass: Tag }
-   * };
-   */
-  static classProps = {};
-
-  /**
    * classProps に定義されたプロパティ定義情報を配列にして返します。
    */
   static get schema() {
@@ -162,65 +170,13 @@ export default class FireModel extends BaseClass {
   static hasMany = [];
 
   /**
-   * 現在のリアルタイムリスナー関数を取得または設定します。
-   *
-   * @type {Function|null}
-   */
-  get listener() {
-    return this._listener;
-  }
-  set listener(v) {
-    this._listener = v;
-  }
-
-  /**
-   * 購読中のドキュメントデータを取得または設定します。
-   *
-   * @type {Array<Object>}
-   */
-  get docs() {
-    return this._docs;
-  }
-  set docs(v) {
-    this._docs = v;
-  }
-
-  /**
-   * FireModel にアダプターを設定します。
-   * - アダプターは Firestore の CRUD 操作を担当します。
-   * - 通常、ClientAdapter または ServerAdapter のいずれかを渡します。
-   *
-   * @param {Object} adapter - Firestore CRUD アダプターインスタンス
-   */
-  static setAdapter(adapter) {
-    FireModel._adapter = adapter;
-  }
-
-  /**
-   * 現在設定されている Firestore アダプターを取得します。
-   *
-   * @returns {Object} 設定されたアダプターインスタンス
-   * @throws {Error} アダプターが未設定の場合
-   */
-  static getAdapter() {
-    if (!FireModel._adapter) {
-      throw new Error(
-        "Firestore adapter is not set. Call FireModel.setAdapter first."
-      );
-    }
-    return FireModel._adapter;
-  }
-
-  /**
    * FireModel の新しいインスタンスを作成します。
    * - `_initializeCoreProperties()` により、インスタンスの基本的な構造とシステムフィールドをセットアップします。
    * - `initialize()` により、`classProps` の定義と渡された `item` の値に基づいてプロパティを初期化します。
    * @param {Object} item - 初期化に使用する値を持つオブジェクト
    */
   constructor(item = {}) {
-    super();
-    this._initializeCoreProperties();
-    this.initialize(item || {});
+    super(item);
   }
 
   /**
@@ -280,23 +236,23 @@ export default class FireModel extends BaseClass {
   }
 
   /**
-   * プロパティを `classProps` の定義に基づいて初期化します。
-   *
-   * - `docId`, `uid`, `createdAt`, `updatedAt` は常にセットされます。
-   * - `createdAt`, `updatedAt` は Date オブジェクトに変換されます。
-   * - カスタムクラスや配列も適切に変換・コピーされます。
-   * - 初期状態は `_beforeData` に保持されます。
-   *
-   * 2025-06-04
-   * - classProp.type で Date は許容しないこと。
-   * - Firestore の日付フィールドは timestamp 型であり、JS の Date オブジェクトとは似て非なるもの。
-   * - アプリ側と Firestoe 側とでデータを対応させることを前提にすると Object として扱うことが最良と思われる。
-   *
+   * BaseClass の initialize をオーバーライドします。
+   * - `_initializeCoreProperties` で FireModel のコアプロパティを初期化します。
+   * - `_beforeData` プロパティを追加します。
    * @param {Object} item - 初期化に使用する値のオブジェクト
    */
   initialize(item = {}) {
-    // 初期化処理
-    const { docId, uid, createdAt, updatedAt, ...data } = item || {};
+    this._initializeCoreProperties(item);
+    super.initialize(item);
+    this._beforeData = this.toObject();
+  }
+
+  /**
+   * FireModel のコアプロパティを初期化します。
+   * @param {Object} item
+   */
+  _initializeCoreProperties(item = {}) {
+    const { docId, uid, createdAt, updatedAt } = item || {};
 
     // docId, uid の初期化処理
     this.docId = docId || "";
@@ -317,75 +273,45 @@ export default class FireModel extends BaseClass {
         ? updatedAt.toDate()
         : null;
 
-    this._setDefaultValueFromClassProps();
-
-    // createdAt, updatedAt 以外の処理
-    if (data) {
-      Object.keys(data).forEach((key) => {
-        // classProps の定義を取得
-        const classProp = this.constructor.classProps?.[key];
-
-        if (classProp) {
-          switch (classProp.type) {
-            case String:
-            case Number:
-            case Boolean:
-              this[key] = data[key];
-              break;
-
-            case Object: {
-              const customClass = classProp?.customClass;
-              if (customClass && data[key]) {
-                this[key] = new customClass(data[key]);
-              } else if (data[key] instanceof Date) {
-                // Dateオブジェクトの場合はそのまま代入
-                this[key] = data[key];
-              } else if (data[key]?.toDate) {
-                this[key] = data[key].toDate();
-              } else {
-                // DateでもTimestampでもないObjectの場合、ディープコピー (nullやundefinedも考慮)
-                this[key] = data[key]
-                  ? JSON.parse(JSON.stringify(data[key]))
-                  : data[key];
-              }
-              break;
-            }
-
-            case Array: {
-              const customClass = classProp?.customClass;
-              if (Array.isArray(data[key])) {
-                this[key] = customClass
-                  ? data[key].map((element) => new customClass(element))
-                  : JSON.parse(JSON.stringify(data[key]));
-              } else {
-                this[key] = [];
-              }
-              break;
-            }
-
-            default: {
-              throw new Error(
-                `[FireModel.js] Unknown type is defined at classProps. type: ${classProp.type}`
-              );
-            }
-          }
-        }
-      });
-    }
-
-    // サブクラスで追加定義された初期化処理を実行
-    this.afterInitialize();
-
-    // 初期化処理完了後、編集前の状態を _beforeData プロパティとして提供
-    this._beforeData = this.toObject();
+    /** リアルタイムリスナー用変数 */
+    // `toObject()` で無視できるよう、enumerable を false に
+    Object.defineProperty(this, "_listener", {
+      value: null,
+      writable: true,
+      enumerable: false,
+      configurable: true,
+    });
+    Object.defineProperty(this, "_docs", {
+      value: [],
+      writable: true,
+      enumerable: false,
+      configurable: true,
+    });
   }
 
   /**
-   * initialize メソッドの最後に呼び出されるフック。
-   * サブクラスで特有のゲッタープロパティを追加するなど、
-   * 追加の初期化処理を実装するために使用します。
+   * 現在のリアルタイムリスナー関数を取得または設定します。
+   *
+   * @type {Function|null}
    */
-  afterInitialize() {}
+  get listener() {
+    return this._listener;
+  }
+  set listener(v) {
+    this._listener = v;
+  }
+
+  /**
+   * 購読中のドキュメントデータを取得または設定します。
+   *
+   * @type {Array<Object>}
+   */
+  get docs() {
+    return this._docs;
+  }
+  set docs(v) {
+    this._docs = v;
+  }
 
   /**
    * インスタンスをプレーンなオブジェクトに変換します。
@@ -399,46 +325,6 @@ export default class FireModel extends BaseClass {
     const result = super.toObject();
     delete result._beforeData;
     return result;
-  }
-
-  /**
-   * FireModel インスタンスが必要とする中核的なプロパティを初期化します。
-   * - システムフィールド (`docId`, `uid`, `createdAt`, `updatedAt`) を初期値で設定します。
-   * - 内部プロパティ (`_listener`, `_docs`) を非列挙として定義します。
-   * - `tokenFields` に基づいて `tokenMap` のゲッター/セッターも自動的に定義されます。
-   * - このメソッドは、コンストラクタ内で `initialize` メソッドがユーザー定義の `classProps` や
-   *   入力データを処理する前に、インスタンスの基本的な構造を準備します。
-   */
-  _initializeCoreProperties() {
-    /** Firestore のドキュメントID */
-    this.docId = "";
-
-    /** ドキュメントの最終更新者を表す ID */
-    this.uid = "";
-
-    /** ドキュメントの作成日時 */
-    this.createdAt = null;
-
-    /** ドキュメントの更新日時 */
-    this.updatedAt = null;
-
-    /** リアルタイムリスナー用変数 */
-    // `toObject()` で無視できるよう、enumerable を false に
-    Object.defineProperty(this, "_listener", {
-      value: null,
-      writable: true,
-      enumerable: false,
-      configurable: true,
-    });
-
-    /** 購読中のドキュメント配列 */
-    // `toObject()` で無視できるよう、enumerable を false に */
-    Object.defineProperty(this, "_docs", {
-      value: [],
-      writable: true,
-      enumerable: false,
-      configurable: true,
-    });
   }
 
   /**
@@ -488,21 +374,6 @@ export default class FireModel extends BaseClass {
       if (validator && !validator(this[key])) {
         throw new Error(`Invalid value at ${key}. value: ${this[key]}`);
       }
-    });
-  }
-
-  /**
-   * インスタンスの各プロパティの値を classProps の default で定義されている値に更新します。
-   * - classProps に定義されていてインスタンスに実装されていない
-   *   プロパティが存在すれば、ここで実装されます。
-   */
-  _setDefaultValueFromClassProps() {
-    const classProps = this.constructor.classProps || {};
-    Object.keys(classProps).forEach((key) => {
-      const propConfig = classProps[key];
-      const defaultValue = propConfig.default;
-      this[key] =
-        typeof defaultValue === "function" ? defaultValue() : defaultValue;
     });
   }
 
