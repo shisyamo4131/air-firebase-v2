@@ -65,56 +65,24 @@ export class BaseClass {
   initialize(data = {}) {
     this.beforeInitialize(data);
     this._setDefault();
+    const copyValue = (value, customClass) => {
+      if (value == null) return value;
+      if (Array.isArray(value)) {
+        return value.map((v) => copyValue(v, customClass));
+      }
+      if (customClass) return new customClass(value);
+      if (typeof value.toDate === "function") {
+        return value.toDate();
+      }
+      if (value instanceof Date) return new Date(value);
+      if (typeof value === "object") return { ...value };
+      return value;
+    };
     if (data) {
-      Object.keys(data).forEach((key) => {
-        // classProps の定義を取得
-        const classProp = this.constructor.classProps?.[key];
-
-        if (classProp) {
-          switch (classProp.type) {
-            case String:
-            case Number:
-            case Boolean:
-              this[key] = data[key];
-              break;
-
-            case Object: {
-              const customClass = classProp?.customClass;
-              if (customClass && data[key]) {
-                this[key] = new customClass(data[key]);
-              } else if (data[key] instanceof Date) {
-                // Dateオブジェクトの場合はそのまま代入
-                this[key] = data[key];
-              } else if (data[key]?.toDate) {
-                this[key] = data[key].toDate();
-              } else {
-                // DateでもTimestampでもないObjectの場合、ディープコピー (nullやundefinedも考慮)
-                this[key] = data[key]
-                  ? JSON.parse(JSON.stringify(data[key]))
-                  : data[key];
-              }
-              break;
-            }
-
-            case Array: {
-              const customClass = classProp?.customClass;
-              if (Array.isArray(data[key])) {
-                this[key] = customClass
-                  ? data[key].map((element) => new customClass(element))
-                  : JSON.parse(JSON.stringify(data[key]));
-              } else {
-                this[key] = [];
-              }
-              break;
-            }
-
-            default: {
-              throw new Error(
-                `[FireModel.js] Unknown type is defined at classProps. type: ${classProp.type}`
-              );
-            }
-          }
-        }
+      Object.entries(data).forEach(([key, value]) => {
+        const classProps = this.constructor.classProps?.[key];
+        const customClass = classProps?.customClass;
+        this[key] = copyValue(value, customClass);
       });
     }
     this.afterInitialize(data);
