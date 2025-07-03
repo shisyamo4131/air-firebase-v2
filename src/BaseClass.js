@@ -18,7 +18,7 @@ export class BaseClass {
   /**
    * クラス名
    */
-  static name = "BaseClass";
+  static className = "BaseClass";
 
   /**
    * プロパティ定義マップ
