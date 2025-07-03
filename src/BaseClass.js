@@ -35,6 +35,15 @@ export class BaseClass {
    */
   static classProps = {};
 
+  /**
+   * classProps に定義されたプロパティ定義情報を配列にして返します。
+   */
+  static get schema() {
+    return Object.entries(this.classProps).map(([key, value]) => {
+      return { key, ...value };
+    });
+  }
+
   /** tokenMap 生成対象のプロパティ名リスト */
   static tokenFields = [];
 
