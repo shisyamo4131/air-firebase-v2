@@ -8,6 +8,11 @@ export { BaseClass };
  */
 export default class FireModel extends BaseClass {
   /**
+   * クラス名
+   */
+  static name = "FireModel";
+
+  /**
    * Firestore の CRUD 機能を注入するアダプター。
    * `setAdapter` を使って `ClientAdapter` または `ServerAdapter` をセットします。
    */

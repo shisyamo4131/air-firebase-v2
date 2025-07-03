@@ -16,6 +16,11 @@ import { generateTokenMap } from "./utils/tokenMap.js";
  */
 export class BaseClass {
   /**
+   * クラス名
+   */
+  static name = "BaseClass";
+
+  /**
    * プロパティ定義マップ
    *
    * 継承先のクラスでプロパティの初期化や検証に利用する設定をまとめる場所です。
