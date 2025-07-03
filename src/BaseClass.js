@@ -41,6 +41,12 @@ export class BaseClass {
   static classProps = {};
 
   /**
+   * インスタンスを一覧表示（テーブル表示）する際に使用するヘッダー定義です。
+   * Vuetify の v-data-table コンポーネントで使用される形式に準拠しています。
+   */
+  static headers = null;
+
+  /**
    * classProps に定義されたプロパティ定義情報を配列にして返します。
    */
   static get schema() {
