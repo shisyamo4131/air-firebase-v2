@@ -101,8 +101,10 @@ export class BaseClass {
     if (data) {
       Object.entries(data).forEach(([key, value]) => {
         const classProps = this.constructor.classProps?.[key];
-        const customClass = classProps?.customClass;
-        this[key] = copyValue(value, customClass);
+        if (classProps) {
+          const customClass = classProps?.customClass;
+          this[key] = copyValue(value, customClass);
+        }
       });
     }
     this.afterInitialize(data);
