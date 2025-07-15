@@ -331,48 +331,48 @@ export default class FireModel extends BaseClass {
    *
    * @throws {Error} 必須フィールドの欠落やバリデーション失敗時にスローされます
    */
-  validate() {
-    Object.entries(this.constructor.classProps).forEach(([key, config]) => {
-      const { type, required, validator } = config;
+  // validate() {
+  //   Object.entries(this.constructor.classProps).forEach(([key, config]) => {
+  //     const { type, required, validator } = config;
 
-      switch (type) {
-        case String:
-        case Number:
-        case Object: {
-          const isValueMissing =
-            this[key] === undefined || this[key] === null || this[key] === "";
-          if (required && isValueMissing) {
-            throw new Error(`${key} is required.`);
-          }
-          break;
-        }
+  //     switch (type) {
+  //       case String:
+  //       case Number:
+  //       case Object: {
+  //         const isValueMissing =
+  //           this[key] === undefined || this[key] === null || this[key] === "";
+  //         if (required && isValueMissing) {
+  //           throw new Error(`${key} is required.`);
+  //         }
+  //         break;
+  //       }
 
-        case Array: {
-          if (
-            required &&
-            (!Array.isArray(this[key]) || this[key].length === 0)
-          ) {
-            throw new Error(`${key} requires one or more elements.`);
-          }
-          break;
-        }
+  //       case Array: {
+  //         if (
+  //           required &&
+  //           (!Array.isArray(this[key]) || this[key].length === 0)
+  //         ) {
+  //           throw new Error(`${key} requires one or more elements.`);
+  //         }
+  //         break;
+  //       }
 
-        case Boolean:
-          // Typically nothing to validate here unless a custom validator is provided.
-          break;
+  //       case Boolean:
+  //         // Typically nothing to validate here unless a custom validator is provided.
+  //         break;
 
-        default:
-          throw new Error(
-            `Unknown type is defined at classProps. type: ${config.type}`
-          );
-      }
+  //       default:
+  //         throw new Error(
+  //           `Unknown type is defined at classProps. type: ${config.type}`
+  //         );
+  //     }
 
-      // Custom validator check
-      if (validator && !validator(this[key])) {
-        throw new Error(`Invalid value at ${key}. value: ${this[key]}`);
-      }
-    });
-  }
+  //     // Custom validator check
+  //     if (validator && !validator(this[key])) {
+  //       throw new Error(`Invalid value at ${key}. value: ${this[key]}`);
+  //     }
+  //   });
+  // }
 
   /**
    * ドキュメント作成前に実行されるフック処理です。
