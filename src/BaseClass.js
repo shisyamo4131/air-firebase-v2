@@ -189,6 +189,13 @@ export class BaseClass {
   }
 
   /**
+   * インスタンスの状態を `_beforeData` の内容で復元します。
+   */
+  restore() {
+    this.initialize(this._beforeData);
+  }
+
+  /**
    * `classProps` に基づいてプロパティの値を検証します。
    * - `required` フィールドの存在確認を行います。
    * - 型の整合性、カスタムバリデータの実行も行われます。
