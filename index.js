@@ -538,6 +538,36 @@ export default class FireModel extends BaseClass {
   }
 
   /**
+   * 指定されたドキュメント ID の配列に該当するドキュメントを取得して返します。
+   * - `prefix` が指定されている場合は、コレクションパスの解決に使用されます。
+   *
+   * [NOTE]
+   * - 2025/06/04 現在、transaction.get() に Query を指定すると以下のエラーが発生。
+   *   Cannot read properties of undefined (reading 'path')
+   *   原因が不明なため、`transaction` が指定されている場合は警告を出力するとともに
+   *   getDocs() を使った処理に差し替えることとする。
+   *
+   * @param {Object} args - Fetch options.
+   * @param {Array<string>} args.ids - Document ID の配列。
+   * @param {Object|null} [args.transaction=null] - Firestore transaction (optional).
+   * @param {string|null} [args.prefix=null] - Optional Firestore path prefix.
+   * @returns {Promise<Array<Object>>} Array of document data.
+   */
+  async fetchDocsByIds({ ids = [], transaction = null, prefix = null } = {}) {
+    const adapter = FireModel.getAdapter();
+    try {
+      return await adapter.fetchDocsByIds.bind(this)({
+        ids,
+        transaction,
+        prefix,
+      });
+    } catch (err) {
+      adapter.logger.error(`[FireModel.js - fetchDocsByIds] ${err.message}`);
+      throw err;
+    }
+  }
+
+  /**
    * インスタンスの内容で Firestore ドキュメントを更新します。
    * - `transaction` が指定されていればそれを使用します。
    * - `callBack` で独自の処理を注入可能です。
