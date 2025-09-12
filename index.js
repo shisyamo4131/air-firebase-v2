@@ -651,15 +651,17 @@ export default class FireModel extends BaseClass {
    * @param {Object} args - パラメータオブジェクト
    * @param {string} args.docId - 復元対象のドキュメント ID
    * @param {string|null} [args.prefix=null] - パスのプレフィックス
+   * @param {Object|null} [args.transaction=null] - Firestore トランザクションオブジェクト
    * @returns {Promise<DocumentReference>} 復元されたドキュメントの参照
    * @throws {Error} `docId` が指定されていない、またはドキュメントが存在しない場合
    */
-  async restore({ docId, prefix = null }) {
+  async restore({ docId, prefix = null, transaction = null } = {}) {
     const adapter = FireModel.getAdapter();
     try {
       return await adapter.restore.bind(this)({
         docId,
         prefix,
+        transaction,
       });
     } catch (err) {
       adapter.logger.error(`[FireModel.js - restore] ${err.message}`);
