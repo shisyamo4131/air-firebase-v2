@@ -402,7 +402,7 @@ export default class FireModel extends BaseClass {
     const adapter = FireModel.getAdapter();
     try {
       // `callBack` must be a function if provided.
-      if (args.callBack !== null && typeof args.callBack !== "function") {
+      if (args.callBack && typeof args.callBack !== "function") {
         throw new Error(`[FireModel.js - create] callBack must be a function.`);
       }
       return await adapter.create.bind(this)(args);
