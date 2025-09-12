@@ -654,7 +654,7 @@ export default class FireModel extends BaseClass {
    * @returns {Promise<DocumentReference>} 復元されたドキュメントの参照
    * @throws {Error} `docId` が指定されていない、またはドキュメントが存在しない場合
    */
-  static async restore({ docId, prefix = null }) {
+  async restore({ docId, prefix = null }) {
     const adapter = FireModel.getAdapter();
     try {
       return await adapter.restore.bind(this)({
