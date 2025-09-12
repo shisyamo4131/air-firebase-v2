@@ -387,36 +387,25 @@ export default class FireModel extends BaseClass {
   }
 
   /**
-   * Firestore に新しいドキュメントを作成します。
-   * - `transaction` が指定されない場合、自動で生成されます。
-   * - `useAutonumber` が有効な場合、`setAutonumber()` が実行されます。
-   * - 作成後、コールバックが指定されていれば実行されます。
-   *
-   * @param {Object} args - パラメータオブジェクト
-   * @param {string|null} [args.docId=null] - 作成するドキュメントの ID (optional).
-   * @param {boolean} [args.useAutonumber=true] - 自動採番を使用するかどうか
-   * @param {Object|null} [args.transaction=null] - Firestore トランザクション
-   * @param {Function|null} [args.callBack=null] - コールバック関数
-   * @param {string|null} [args.prefix=null] - パスのプレフィックス
-   * @returns {Promise<DocumentReference>} 作成されたドキュメントの参照
-   * @throws {Error} コールバックが関数でない、書き込み失敗など
+   * Create a new document in Firestore.
+   * - This function calls the adapter's `create` method.
+   * @param {Object} args - Creation options.
+   * @param {string} [args.docId] - Document ID to use (optional).
+   * @param {boolean} [args.useAutonumber=true] - Whether to use auto-numbering.
+   * @param {Object} [args.transaction] - Firestore transaction.
+   * @param {Function} [args.callBack] - Callback function.
+   * @param {string} [args.prefix] - Path prefix.
+   * @returns {Promise<DocumentReference>} Reference to the created document.
+   * @throws {Error} If creation fails or `callBack` is not a function.
    */
-  async create({
-    docId = null,
-    useAutonumber = true,
-    transaction = null,
-    callBack = null,
-    prefix = null,
-  } = {}) {
+  async create(args = {}) {
     const adapter = FireModel.getAdapter();
     try {
-      return await adapter.create.bind(this)({
-        docId,
-        useAutonumber,
-        transaction,
-        callBack,
-        prefix,
-      });
+      // `callBack` must be a function if provided.
+      if (args.callBack !== null && typeof args.callBack !== "function") {
+        throw new Error(`[FireModel.js - create] callBack must be a function.`);
+      }
+      return await adapter.create.bind(this)(args);
     } catch (err) {
       adapter.logger.error(`[FireModel.js - create] ${err.message}`);
       throw err;
@@ -424,25 +413,23 @@ export default class FireModel extends BaseClass {
   }
 
   /**
-   * Firestore からドキュメントを取得し、インスタンスに読み込みます。
-   * - `transaction` が指定されていればそれを使用します。
-   * - ドキュメントが存在しない場合、初期状態にリセットされます。
-   *
-   * @param {Object} args - パラメータオブジェクト
-   * @param {string} args.docId - 取得するドキュメントの ID
-   * @param {Object|null} [args.transaction=null] - トランザクションオブジェクト (optional).
-   * @param {string|null} [args.prefix=null] - パスのプレフィックス (optional).
-   * @returns {Promise<boolean>} 取得成功時は true、失敗時は false
-   * @throws {Error} `docId` が未指定または取得エラー時
+   * Get a document from Firestore by its ID and load into this instance.
+   * - This function calls the adapter's `fetch` method.
+   * - The class properties will be cleared if the document does not exist.
+   * @param {Object} args - Fetch options.
+   * @param {string} args.docId - Document ID to fetch.
+   * @param {Object|null} [args.transaction=null] - Firestore transaction (optional).
+   * @param {string|null} [args.prefix=null] - Path prefix (optional).
+   * @returns {Promise<boolean>} True if document was found and loaded, false if not found.
+   * @throws {Error} If `docId` is not specified or fetch fails.
    */
-  async fetch({ docId, transaction = null, prefix = null }) {
+  async fetch(args = {}) {
     const adapter = FireModel.getAdapter();
     try {
-      return await adapter.fetch.bind(this)({
-        docId,
-        transaction,
-        prefix,
-      });
+      if (!args.docId) {
+        throw new Error("[FireModel.js - fetch] 'docId' is required.");
+      }
+      return await adapter.fetch.bind(this)(args);
     } catch (err) {
       adapter.logger.error(`[FireModel.js - fetch] ${err.message}`);
       throw err;
@@ -450,25 +437,22 @@ export default class FireModel extends BaseClass {
   }
 
   /**
-   * Firestore からドキュメントを取得し、新しいインスタンスとして返します。
-   * - `fetch()` は現在のインスタンスを更新しますが、`fetchDoc()` は新しいオブジェクトを返します。
-   * - `transaction` を使用することも可能です。
-   *
-   * @param {Object} args - パラメータオブジェクト
-   * @param {string} args.docId - 取得するドキュメント ID
-   * @param {Object|null} [args.transaction=null] - Firestore トランザクション（省略可）
-   * @param {string|null} [args.prefix=null] - パスのプレフィックス
-   * @returns {Promise<Object|null>} ドキュメントのデータ、存在しない場合は null
-   * @throws {Error} `docId` が未指定または取得失敗時
+   * Get a document from Firestore by its ID and return as a new instance.
+   * - This function calls the adapter's `fetchDoc` method.
+   * @param {Object} args - Fetch options.
+   * @param {string} args.docId - Document ID to fetch.
+   * @param {Object|null} [args.transaction=null] - Firestore transaction (optional).
+   * @param {string|null} [args.prefix=null] - Path prefix (optional).
+   * @returns {Promise<Object|null>} Document data, or null if not found.
+   * @throws {Error} If `docId` is not specified or fetch fails.
    */
-  async fetchDoc({ docId, transaction = null, prefix = null }) {
+  async fetchDoc(args = {}) {
     const adapter = FireModel.getAdapter();
     try {
-      return await adapter.fetchDoc.bind(this)({
-        docId,
-        transaction,
-        prefix,
-      });
+      if (!args.docId) {
+        throw new Error("[FireModel.js - fetchDoc] 'docId' is required.");
+      }
+      return await adapter.fetchDoc.bind(this)(args);
     } catch (err) {
       adapter.logger.error(`[FireModel.js - fetchDoc] ${err.message}`);
       throw err;
