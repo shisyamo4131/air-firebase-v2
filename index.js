@@ -702,17 +702,14 @@ export default class FireModel extends BaseClass {
    * @param {Array|string} args.constraints - 検索条件または検索文字列
    * @param {Array} args.options - 追加のクエリ条件（省略可能）
    * @param {string|null} [args.prefix=null] - パスのプレフィックス
+   * @param {function|null} [args.callback=null] - Callback executed on document changes.
    * @returns {Array<Object>} 購読中のドキュメントデータ配列
    * @throws {Error} 無効なクエリタイプが指定された場合
    */
-  subscribeDocs({ constraints = [], options = [], prefix = null } = {}) {
+  subscribeDocs(args = {}) {
     const adapter = FireModel.getAdapter();
     try {
-      return adapter.subscribeDocs.bind(this)({
-        constraints,
-        options,
-        prefix,
-      });
+      return adapter.subscribeDocs.bind(this)(args);
     } catch (err) {
       adapter.logger.error(`[FireModel.js - subscribeDocs] ${err.message}`);
       throw err;
