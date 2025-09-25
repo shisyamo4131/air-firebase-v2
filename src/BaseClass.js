@@ -108,6 +108,8 @@ export class BaseClass {
       });
     }
     this.afterInitialize(data);
+
+    this._beforeData = this.toObject();
   }
 
   /**
@@ -171,10 +173,13 @@ export class BaseClass {
    * @returns {object} - プレーンなオブジェクトに変換されたインスタンス
    */
   toObject() {
-    return Object.keys(this).reduce((obj, key) => {
+    const result = Object.keys(this).reduce((obj, key) => {
       obj[key] = this.constructor._cloneValue(this[key]);
       return obj;
     }, {});
+
+    delete result._beforeData;
+    return result;
   }
 
   /**

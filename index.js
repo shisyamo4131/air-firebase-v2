@@ -241,7 +241,7 @@ export default class FireModel extends BaseClass {
   initialize(item = {}) {
     this._initializeCoreProperties(item);
     super.initialize(item);
-    this._beforeData = this.toObject();
+    // this._beforeData = this.toObject();
   }
 
   /**
@@ -308,20 +308,6 @@ export default class FireModel extends BaseClass {
   }
   set docs(v) {
     this._docs = v;
-  }
-
-  /**
-   * インスタンスをプレーンなオブジェクトに変換します。
-   * - BaseClass の toObject() を使用します。
-   * - initialize() によって付与されている _beforeData プロパティは削除されます。
-   * @returns {Object} - 変換後のプレーンオブジェクト
-   *
-   * @update 2025-06-27 コアの処理を BaseClass に移管
-   */
-  toObject() {
-    const result = super.toObject();
-    delete result._beforeData;
-    return result;
   }
 
   /**
