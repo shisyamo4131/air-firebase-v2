@@ -196,7 +196,7 @@ export class BaseClass {
   /**
    * インスタンスの状態を `_beforeData` の内容で復元します。
    */
-  restore() {
+  undo() {
     this.initialize(this._beforeData);
   }
 
