@@ -367,9 +367,9 @@ export default class FireModel extends BaseClass {
    * @returns {Promise<Function>} 採番値を更新する関数
    * @throws {Error} ドキュメントが存在しない、無効なステータス、最大値到達時など
    */
-  async setAutonumber({ transaction, prefix = null }) {
+  async setAutonumber(params = {}) {
     const adapter = FireModel.getAdapter();
-    return await adapter.setAutonumber.bind(this)({ transaction, prefix });
+    return await adapter.setAutonumber.bind(this)(params);
   }
 
   /**
@@ -386,16 +386,7 @@ export default class FireModel extends BaseClass {
    */
   async create(args = {}) {
     const adapter = FireModel.getAdapter();
-    try {
-      // `callBack` must be a function if provided.
-      if (args.callBack && typeof args.callBack !== "function") {
-        throw new Error(`[FireModel.js - create] callBack must be a function.`);
-      }
-      return await adapter.create.bind(this)(args);
-    } catch (err) {
-      adapter.logger.error(`[FireModel.js - create] ${err.message}`);
-      throw err;
-    }
+    return await adapter.create.bind(this)(args);
   }
 
   /**
@@ -411,15 +402,7 @@ export default class FireModel extends BaseClass {
    */
   async fetch(args = {}) {
     const adapter = FireModel.getAdapter();
-    try {
-      if (!args.docId) {
-        throw new Error("[FireModel.js - fetch] 'docId' is required.");
-      }
-      return await adapter.fetch.bind(this)(args);
-    } catch (err) {
-      adapter.logger.error(`[FireModel.js - fetch] ${err.message}`);
-      throw err;
-    }
+    return await adapter.fetch.bind(this)(args);
   }
 
   /**
@@ -434,15 +417,7 @@ export default class FireModel extends BaseClass {
    */
   async fetchDoc(args = {}) {
     const adapter = FireModel.getAdapter();
-    try {
-      if (!args.docId) {
-        throw new Error("[FireModel.js - fetchDoc] 'docId' is required.");
-      }
-      return await adapter.fetchDoc.bind(this)(args);
-    } catch (err) {
-      adapter.logger.error(`[FireModel.js - fetchDoc] ${err.message}`);
-      throw err;
-    }
+    return await adapter.fetchDoc.bind(this)(args);
   }
 
   /**
@@ -487,54 +462,23 @@ export default class FireModel extends BaseClass {
    * @returns {Promise<Array<Object>>} 取得されたドキュメント配列
    * @throws {Error} クエリが無効または取得に失敗した場合
    */
-  async fetchDocs({
-    constraints = [],
-    options = [],
-    transaction = null,
-    prefix = null,
-  } = {}) {
+  async fetchDocs(args = {}) {
     const adapter = FireModel.getAdapter();
-    try {
-      return await adapter.fetchDocs.bind(this)({
-        constraints,
-        options,
-        transaction,
-        prefix,
-      });
-    } catch (err) {
-      adapter.logger.error(`[FireModel.js - fetchDocs] ${err.message}`);
-      throw err;
-    }
+    return await adapter.fetchDocs.bind(this)(args);
   }
 
   /**
    * 指定されたドキュメント ID の配列に該当するドキュメントを取得して返します。
    * - `prefix` が指定されている場合は、コレクションパスの解決に使用されます。
-   *
-   * [NOTE]
-   * - 2025/06/04 現在、transaction.get() に Query を指定すると以下のエラーが発生。
-   *   Cannot read properties of undefined (reading 'path')
-   *   原因が不明なため、`transaction` が指定されている場合は警告を出力するとともに
-   *   getDocs() を使った処理に差し替えることとする。
-   *
    * @param {Object} args - Fetch options.
    * @param {Array<string>} args.ids - Document ID の配列。
    * @param {Object|null} [args.transaction=null] - Firestore transaction (optional).
    * @param {string|null} [args.prefix=null] - Optional Firestore path prefix.
    * @returns {Promise<Array<Object>>} Array of document data.
    */
-  async fetchDocsByIds({ ids = [], transaction = null, prefix = null } = {}) {
+  async fetchDocsByIds(args = {}) {
     const adapter = FireModel.getAdapter();
-    try {
-      return await adapter.fetchDocsByIds.bind(this)({
-        ids,
-        transaction,
-        prefix,
-      });
-    } catch (err) {
-      adapter.logger.error(`[FireModel.js - fetchDocsByIds] ${err.message}`);
-      throw err;
-    }
+    return await adapter.fetchDocsByIds.bind(this)(args);
   }
 
   /**
@@ -549,18 +493,9 @@ export default class FireModel extends BaseClass {
    * @returns {Promise<DocumentReference>} 更新されたドキュメントの参照
    * @throws {Error} 更新処理に失敗した場合
    */
-  async update({ transaction = null, callBack = null, prefix = null } = {}) {
+  async update(args = {}) {
     const adapter = FireModel.getAdapter();
-    try {
-      return await adapter.update.bind(this)({
-        transaction,
-        callBack,
-        prefix,
-      });
-    } catch (err) {
-      adapter.logger.error(`[FireModel.js - update] ${err.message}`);
-      throw err;
-    }
+    return await adapter.update.bind(this)(args);
   }
 
   /**
@@ -574,17 +509,9 @@ export default class FireModel extends BaseClass {
    * @returns {Promise<Object|boolean>} 子が存在すればその定義、なければ false
    * @throws {Error} アダプターでの検証に失敗した場合
    */
-  async hasChild({ transaction = null, prefix = null } = {}) {
+  async hasChild(args = {}) {
     const adapter = FireModel.getAdapter();
-    try {
-      return await adapter.hasChild.bind(this)({
-        transaction,
-        prefix,
-      });
-    } catch (err) {
-      adapter.logger.error(`[FireModel.js - hasChild] ${err.message}`);
-      throw err;
-    }
+    return await adapter.hasChild.bind(this)(args);
   }
 
   /**
@@ -599,18 +526,9 @@ export default class FireModel extends BaseClass {
    * @returns {Promise<void>} 削除または移動が完了したときに解決される Promise
    * @throws {Error} 削除処理に失敗した場合
    */
-  async delete({ transaction = null, callBack = null, prefix = null } = {}) {
+  async delete(args = {}) {
     const adapter = FireModel.getAdapter();
-    try {
-      return await adapter.delete.bind(this)({
-        transaction,
-        callBack,
-        prefix,
-      });
-    } catch (err) {
-      adapter.logger.error(`[FireModel.js - delete] ${err.message}`);
-      throw err;
-    }
+    return await adapter.delete.bind(this)(args);
   }
 
   /**
@@ -625,18 +543,9 @@ export default class FireModel extends BaseClass {
    * @returns {Promise<DocumentReference>} 復元されたドキュメントの参照
    * @throws {Error} `docId` が指定されていない、またはドキュメントが存在しない場合
    */
-  async restore({ docId, prefix = null, transaction = null } = {}) {
+  async restore(args = {}) {
     const adapter = FireModel.getAdapter();
-    try {
-      return await adapter.restore.bind(this)({
-        docId,
-        prefix,
-        transaction,
-      });
-    } catch (err) {
-      adapter.logger.error(`[FireModel.js - restore] ${err.message}`);
-      throw err;
-    }
+    return await adapter.restore.bind(this)(args);
   }
 
   /**
@@ -646,12 +555,7 @@ export default class FireModel extends BaseClass {
    */
   unsubscribe() {
     const adapter = FireModel.getAdapter();
-    try {
-      adapter.unsubscribe.bind(this)();
-    } catch (err) {
-      adapter.logger.error(`[FireModel.js - unsubscribe] ${err.message}`);
-      throw err;
-    }
+    adapter.unsubscribe.bind(this)();
   }
 
   /**
@@ -664,17 +568,9 @@ export default class FireModel extends BaseClass {
    * @param {string|null} [args.prefix=null] - パスのプレフィックス
    * @throws {Error} `docId` が指定されていない場合
    */
-  subscribe({ docId, prefix = null }) {
+  subscribe(args = {}) {
     const adapter = FireModel.getAdapter();
-    try {
-      adapter.subscribe.bind(this)({
-        docId,
-        prefix,
-      });
-    } catch (err) {
-      adapter.logger.error(`[FireModel.js - subscribe] ${err.message}`);
-      throw err;
-    }
+    adapter.subscribe.bind(this)(args);
   }
 
   /**
@@ -694,11 +590,6 @@ export default class FireModel extends BaseClass {
    */
   subscribeDocs(args = {}) {
     const adapter = FireModel.getAdapter();
-    try {
-      return adapter.subscribeDocs.bind(this)(args);
-    } catch (err) {
-      adapter.logger.error(`[FireModel.js - subscribeDocs] ${err.message}`);
-      throw err;
-    }
+    return adapter.subscribeDocs.bind(this)(args);
   }
 }
