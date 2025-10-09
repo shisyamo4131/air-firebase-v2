@@ -169,11 +169,11 @@ export default class FireModel extends BaseClass {
   /**
    * FireModel の新しいインスタンスを作成します。
    * - `_initializeCoreProperties()` により、インスタンスの基本的な構造とシステムフィールドをセットアップします。
-   * - `initialize()` により、`classProps` の定義と渡された `item` の値に基づいてプロパティを初期化します。
    * @param {Object} item - 初期化に使用する値を持つオブジェクト
    */
   constructor(item = {}) {
     super(item);
+    this._initializeCoreProperties(item);
   }
 
   /**
@@ -230,18 +230,6 @@ export default class FireModel extends BaseClass {
     });
 
     return new this(data);
-  }
-
-  /**
-   * BaseClass の initialize をオーバーライドします。
-   * - `_initializeCoreProperties` で FireModel のコアプロパティを初期化します。
-   * - `_beforeData` プロパティを追加します。
-   * @param {Object} item - 初期化に使用する値のオブジェクト
-   */
-  initialize(item = {}) {
-    this._initializeCoreProperties(item);
-    super.initialize(item);
-    // this._beforeData = this.toObject();
   }
 
   /**
