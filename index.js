@@ -173,9 +173,27 @@ export default class FireModel extends BaseClass {
    */
   constructor(item = {}) {
     super(item);
-    this._initializeCoreProperties(item);
+
+    /** リアルタイムリスナー用変数 */
+    // `toObject()` で無視できるよう、enumerable を false に
+    Object.defineProperty(this, "_listener", {
+      value: null,
+      writable: true,
+      enumerable: false,
+      configurable: true,
+    });
+    Object.defineProperty(this, "_docs", {
+      value: [],
+      writable: true,
+      enumerable: false,
+      configurable: true,
+    });
   }
 
+  initialize(item = {}) {
+    super.initialize(item);
+    this._initializeCoreProperties(item);
+  }
   /**
    * Firestore 用のコンバーターを提供します。
    * - Firestore との相互変換に使用します。
@@ -257,21 +275,6 @@ export default class FireModel extends BaseClass {
         : updatedAt?.toDate
         ? updatedAt.toDate()
         : null;
-
-    /** リアルタイムリスナー用変数 */
-    // `toObject()` で無視できるよう、enumerable を false に
-    Object.defineProperty(this, "_listener", {
-      value: null,
-      writable: true,
-      enumerable: false,
-      configurable: true,
-    });
-    Object.defineProperty(this, "_docs", {
-      value: [],
-      writable: true,
-      enumerable: false,
-      configurable: true,
-    });
   }
 
   /**
