@@ -83,8 +83,8 @@ export class BaseClass {
   afterInitialize(data) {}
 
   initialize(data = {}) {
-    this.beforeInitialize(data);
     this._setDefault();
+    this.beforeInitialize(data);
     const copyValue = (value, customClass) => {
       if (value == null) return value;
       if (Array.isArray(value)) {
