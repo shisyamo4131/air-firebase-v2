@@ -127,6 +127,19 @@ export class BaseClass {
   }
 
   /**
+   * Outputs an error message to the console.
+   * - Use this method only for unexpected errors.
+   * @param {string} funcName
+   * @param {Error} err - The error object to log.
+   */
+  _outputErrorConsole(funcName, err) {
+    console.error(
+      `[ClientAdapter.js - ${funcName}] Unknown error has occurred:`,
+      err
+    );
+  }
+
+  /**
    * 任意の値をクローンします。
    * - null または undefined はそのまま返却します。
    * - 独自クラスのインスタンスは toObject() を呼び出して複製します。
