@@ -565,22 +565,21 @@ export default class FireModel extends BaseClass {
   }
 
   /**
-   * Firestore コレクションに対してリアルタイムリスナーを設定します。
-   * - `constraints` が文字列であれば `tokenMap` による N-Gram 検索が行われます。
-   * - 配列であれば通常の Firestore クエリ制約が使用されます。
-   * - `options` は検索文字列による条件追加に使用されます。
-   * - 結果は `docs` プロパティに保持されます。
+   * Sets a real-time listener on a Firestore collection and monitors changes.
+   * - If `constraints` is a string, performs N-gram search using `tokenMap`.
+   * - If `constraints` is an array, applies Firestore query conditions.
+   * - If `prefix` is provided, it is used to resolve the collection path.
    *
-   * @param {Object} args - パラメータオブジェクト
-   * @param {Array|string} args.constraints - 検索条件または検索文字列
-   * @param {Array} args.options - 追加のクエリ条件（省略可能）
-   * @param {string|null} [args.prefix=null] - パスのプレフィックス
-   * @param {function|null} [args.callback=null] - Callback executed on document changes.
-   * @returns {Array<Object>} 購読中のドキュメントデータ配列
-   * @throws {Error} 無効なクエリタイプが指定された場合
+   * @param {Object} args - Subscribe options.
+   * @param {Array|string} args.constraints - Query condition array or search string.
+   * @param {Array} [args.options=[]] - Additional query conditions.
+   * @param {string|null} [args.prefix=null] - Optional path prefix.
+   * @param {function|null} [args.callback=null] - [deprecated] Callback executed on document changes.
+   * @param {function|null} [callback=null] - Callback executed on document changes (moved from args).
+   * @returns {Array<Object>} Live-updated document data.
    */
-  subscribeDocs(args = {}) {
+  subscribeDocs(args = {}, callback = null) {
     const adapter = FireModel.getAdapter();
-    return adapter.subscribeDocs.bind(this)(args);
+    return adapter.subscribeDocs.bind(this)(args, callback);
   }
 }
