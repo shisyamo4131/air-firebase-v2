@@ -191,8 +191,8 @@ export default class FireModel extends BaseClass {
   }
 
   initialize(item = {}) {
-    super.initialize(item);
     this._initializeCoreProperties(item);
+    super.initialize(item);
   }
   /**
    * Firestore 用のコンバーターを提供します。
