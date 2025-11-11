@@ -557,11 +557,12 @@ export default class FireModel extends BaseClass {
    * @param {Object} args - パラメータオブジェクト
    * @param {string} args.docId - 購読対象のドキュメント ID
    * @param {string|null} [args.prefix=null] - パスのプレフィックス
+   * @param {function|null} [callback=null] - Callback executed on document changes (moved from args).
    * @throws {Error} `docId` が指定されていない場合
    */
-  subscribe(args = {}) {
+  subscribe(args = {}, callback = null) {
     const adapter = FireModel.getAdapter();
-    adapter.subscribe.bind(this)(args);
+    adapter.subscribe.bind(this)(args, callback);
   }
 
   /**
