@@ -1,12 +1,21 @@
 {
-  "name": "air-firebase-v2",
-  "version": "1.0.0",
+  "name": "@shisyamo4131/air-firebase-v2",
+  "version": "1.0.1",
   "description": "Firestore base model with schema-aware class definition for FireModel",
   "license": "ISC",
   "author": "shisyamo4131",
   "type": "module",
   "main": "index.js",
-  "readme": "README.md",
+  "exports": {
+    ".": "./index.js"
+  },
+  "files": [
+    "index.js",
+    "src/**/*.js",
+    "!**/*.test.js",
+    "!**/*.spec.js",
+    "README.md"
+  ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -26,5 +35,8 @@
   "bugs": {
     "url": "https://github.com/shisyamo4131/air-firebase-v2/issues"
   },
-  "homepage": "https://github.com/shisyamo4131/air-firebase-v2#readme"
+  "homepage": "https://github.com/shisyamo4131/air-firebase-v2#readme",
+  "publishConfig": {
+    "access": "public"
+  }
 }
