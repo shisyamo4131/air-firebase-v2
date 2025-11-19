@@ -115,12 +115,16 @@ export class BaseClass {
   /**
    * インスタンスの各プロパティの値を classProps の default で定義されている値に更新します。
    * - classProps に定義されていてインスタンスに実装されていないプロパティが存在すれば、ここで実装されます。
+   * - 既存のプロパティ（Object.defineProperty で定義されたものを含む）を一度削除してから再設定します。
    */
   _setDefault() {
     const classProps = this.constructor.classProps || {};
     Object.keys(classProps).forEach((key) => {
       const propConfig = classProps[key];
       const defaultValue = propConfig.default;
+      // 既存のプロパティ定義を削除
+      delete this[key];
+      // デフォルト値で再設定
       this[key] =
         typeof defaultValue === "function" ? defaultValue() : defaultValue;
     });
