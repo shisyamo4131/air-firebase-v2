@@ -243,7 +243,12 @@ export default class FireModel extends BaseClass {
         classProp?.customClass &&
         typeof data[key] === "object"
       ) {
-        data[key] = new classProp.customClass(data[key]);
+        // CHANGE 2025-11-19
+        // カスタムクラスオブジェクトが null の場合は null のままにするように修正。
+        // data[key] = new classProp.customClass(data[key]);
+        if (data[key]) {
+          data[key] = new classProp.customClass(data[key]);
+        }
       }
     });
 
