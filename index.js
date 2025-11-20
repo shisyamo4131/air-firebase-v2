@@ -135,6 +135,23 @@ export default class FireModel extends BaseClass {
   }
 
   /**
+   * 指定されたドキュメントIDからFirestoreのドキュメント参照を取得します。
+   * - `prefix` が指定されている場合は、コレクションパスの解決に使用されます。
+   * - コンバーターを適用したDocumentReferenceを返します。
+   *
+   * @param {Object} args - パラメータオブジェクト
+   * @param {string} args.docId - ドキュメントID（必須）
+   * @param {string|null} [args.prefix=null] - パスのプレフィックス（任意）
+   * @returns {DocumentReference} Firestoreのドキュメント参照
+   * @throws {Error} `docId` が指定されていない場合、またはアダプターが未設定の場合
+   */
+  static getDocRef(args = {}) {
+    const adapter = FireModel.getAdapter();
+    // アダプターのメソッドを呼び出す際、thisコンテキストをバインド
+    return adapter.getDocRef.bind(this)(args);
+  }
+
+  /**
    * 自動採番機能の有効フラグ。
    */
   static useAutonumber = false;
