@@ -605,4 +605,21 @@ export default class FireModel extends BaseClass {
     const adapter = FireModel.getAdapter();
     return adapter.subscribeDocs.bind(this)(args, callback);
   }
+
+  /**
+   * Firestore トランザクションを実行します。
+   * - アダプターの runTransaction メソッドを呼び出します。
+   * @param {Function} updateFunction - トランザクション内で実行する関数
+   * @returns {Promise<any>} トランザクションの結果
+   * @throws {Error} アダプターが未設定の場合
+   */
+  static async runTransaction(updateFunction) {
+    const adapter = this.getAdapter();
+    if (!adapter.runTransaction) {
+      throw new Error(
+        `[FireModel - runTransaction] Adapter does not support runTransaction.`
+      );
+    }
+    return await adapter.runTransaction(updateFunction);
+  }
 }
