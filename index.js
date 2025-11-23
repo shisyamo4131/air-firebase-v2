@@ -101,6 +101,16 @@ export default class FireModel extends BaseClass {
   static collectionPath = "FireModel";
 
   /**
+   * Path prefix usage flag.
+   * - If true, `getCollectionPath` will consider the `prefix` when constructing the path.
+   * - If false, `getCollectionPath` will return `collectionPath` directly.
+   * - Default is true.
+   * - Note: When set to true, if neither `prefix` argument nor `config.prefix` is provided
+   *   to `getCollectionPath`, it behaves the same as when this flag is false.
+   */
+  static usePrefix = true;
+
+  /**
    * Firestore のコレクションパスを取得します。
    * - `prefix` → `config.prefix` → "" の順で優先されます。
    * - `prefix` がスラッシュで終わっていない場合、自動的に追加されます。
@@ -112,6 +122,8 @@ export default class FireModel extends BaseClass {
    * @throws {Error} 無効な prefix（奇数セグメント）である場合
    */
   static getCollectionPath(prefix = null) {
+    if (!this.usePrefix) return this.collectionPath;
+
     let effectivePrefix = prefix || this.config?.prefix || "";
 
     if (effectivePrefix && !effectivePrefix.endsWith("/")) {
