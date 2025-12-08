@@ -340,9 +340,15 @@ export default class FireModel extends BaseClass {
    * - 通常はサブクラスでオーバーライドして使用します。
    * - このクラスでは何も行いません（デフォルト実装）。
    *
+   * @param {Object} args - Creation options.
+   * @param {string} [args.docId] - Document ID to use (optional).
+   * @param {boolean} [args.useAutonumber=true] - Whether to use auto-numbering.
+   * @param {Object} [args.transaction] - Firestore transaction.
+   * @param {Function} [args.callBack] - Callback function.
+   * @param {string} [args.prefix] - Path prefix.
    * @returns {Promise<void>} 解決済みの Promise
    */
-  beforeCreate() {
+  beforeCreate(args = {}) {
     return Promise.resolve();
   }
 
@@ -351,9 +357,15 @@ export default class FireModel extends BaseClass {
    * - 通常はサブクラスでオーバーライドして使用します。
    * - このクラスでは何も行いません（デフォルト実装）。
    *
+   * @param {Object} args - Creation options.
+   * @param {string} [args.docId] - Document ID to use (optional).
+   * @param {boolean} [args.useAutonumber=true] - Whether to use auto-numbering.
+   * @param {Object} [args.transaction] - Firestore transaction.
+   * @param {Function} [args.callBack] - Callback function.
+   * @param {string} [args.prefix] - Path prefix.
    * @returns {Promise<void>} 解決済みの Promise
    */
-  beforeUpdate() {
+  beforeUpdate(args = {}) {
     return Promise.resolve();
   }
 
@@ -364,9 +376,15 @@ export default class FireModel extends BaseClass {
    * - 通常はサブクラスでオーバーライドして使用します。
    * - このクラスでは何も行いません（デフォルト実装）。
    *
+   * @param {Object} args - Creation options.
+   * @param {string} [args.docId] - Document ID to use (optional).
+   * @param {boolean} [args.useAutonumber=true] - Whether to use auto-numbering.
+   * @param {Object} [args.transaction] - Firestore transaction.
+   * @param {Function} [args.callBack] - Callback function.
+   * @param {string} [args.prefix] - Path prefix.
    * @returns {Promise<void>} 解決済みの Promise
    */
-  beforeEdit() {
+  beforeEdit(args = {}) {
     return Promise.resolve();
   }
 
@@ -375,9 +393,15 @@ export default class FireModel extends BaseClass {
    * - 通常はサブクラスでオーバーライドして使用します。
    * - このクラスでは何も行いません（デフォルト実装）。
    *
+   * @param {Object} args - Creation options.
+   * @param {string} [args.docId] - Document ID to use (optional).
+   * @param {boolean} [args.useAutonumber=true] - Whether to use auto-numbering.
+   * @param {Object} [args.transaction] - Firestore transaction.
+   * @param {Function} [args.callBack] - Callback function.
+   * @param {string} [args.prefix] - Path prefix.
    * @returns {Promise<void>} 解決済みの Promise
    */
-  beforeDelete() {
+  beforeDelete(args = {}) {
     return Promise.resolve();
   }
 
