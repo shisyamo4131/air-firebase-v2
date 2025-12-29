@@ -223,46 +223,98 @@ export class BaseClass {
    * - 型の整合性、カスタムバリデータの実行も行われます。
    *
    * @throws {Error} 必須フィールドの欠落やバリデーション失敗時にスローされます
+   *
+   * @update 2025-12-29 - length validation を追加し、全体的にリファクタリング。
    */
+  // validate() {
+  //   Object.entries(this.constructor.classProps).forEach(([key, config]) => {
+  //     const { type, required, validator } = config;
+
+  //     switch (type) {
+  //       case String:
+  //       case Number:
+  //       case Object: {
+  //         const isValueMissing =
+  //           this[key] === undefined || this[key] === null || this[key] === "";
+  //         if (required && isValueMissing) {
+  //           throw new Error(`${key} is required.`);
+  //         }
+  //         break;
+  //       }
+
+  //       case Array: {
+  //         if (
+  //           required &&
+  //           (!Array.isArray(this[key]) || this[key].length === 0)
+  //         ) {
+  //           throw new Error(`${key} requires one or more elements.`);
+  //         }
+  //         break;
+  //       }
+
+  //       case Boolean:
+  //         // Typically nothing to validate here unless a custom validator is provided.
+  //         break;
+
+  //       default:
+  //         throw new Error(
+  //           `Unknown type is defined at classProps. type: ${config.type}`
+  //         );
+  //     }
+
+  //     // Custom validator check
+  //     if (validator && !validator(this[key])) {
+  //       throw new Error(`Invalid value at ${key}. value: ${this[key]}`);
+  //     }
+  //   });
+  // }
   validate() {
     Object.entries(this.constructor.classProps).forEach(([key, config]) => {
-      const { type, required, validator } = config;
+      const { type, required, validator, length, label } = config;
+      const value = this[key];
+      const fieldLabel = label || key;
 
-      switch (type) {
-        case String:
-        case Number:
-        case Object: {
-          const isValueMissing =
-            this[key] === undefined || this[key] === null || this[key] === "";
-          if (required && isValueMissing) {
-            throw new Error(`${key} is required.`);
+      // Required validation
+      if (required) {
+        if (type === String || type === Number || type === Object) {
+          if (value == null || value === "") {
+            throw new Error(`${fieldLabel} is required.`);
           }
-          break;
         }
-
-        case Array: {
-          if (
-            required &&
-            (!Array.isArray(this[key]) || this[key].length === 0)
-          ) {
-            throw new Error(`${key} requires one or more elements.`);
+        if (type === Array) {
+          if (!Array.isArray(value) || value.length === 0) {
+            throw new Error(`${fieldLabel} must have at least one item.`);
           }
-          break;
         }
-
-        case Boolean:
-          // Typically nothing to validate here unless a custom validator is provided.
-          break;
-
-        default:
-          throw new Error(
-            `Unknown type is defined at classProps. type: ${config.type}`
-          );
       }
 
-      // Custom validator check
-      if (validator && !validator(this[key])) {
-        throw new Error(`Invalid value at ${key}. value: ${this[key]}`);
+      // Length validation
+      if (length != null && value != null) {
+        if (type === String && typeof value === "string") {
+          if (value.length > length) {
+            throw new Error(
+              `${fieldLabel} must be ${length} characters or less.`
+            );
+          }
+        }
+        if (type === Array && Array.isArray(value)) {
+          if (value.length > length) {
+            throw new Error(`${fieldLabel} must have ${length} items or less.`);
+          }
+        }
+      }
+
+      // Custom validator
+      if (validator && typeof validator === "function") {
+        const result = validator(value);
+        if (result !== true) {
+          // validator が文字列を返す場合はそれをエラーメッセージとして使用
+          const message =
+            typeof result === "string"
+              ? result
+              : `Invalid value for ${fieldLabel}.`;
+          throw new Error(message);
+        }
       }
     });
   }
