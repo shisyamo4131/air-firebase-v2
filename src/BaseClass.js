@@ -1,19 +1,24 @@
-import { generateTokenMap } from "./utils/tokenMap.js";
-
 /**
  * @file ./src/BaseClass.js
  * @description FireModel のベースとなるクラスです。
  * - FireModel のサブクラスで実装されるオブジェクト型プロパティを定義するクラスのベースクラスとしても機能します。
  * - クラスで定義するオブジェクト型のプロパティがネストしたオブジェクトを有する場合は BaseClass を継承した
  *   サブクラスをプロパティに設定するべきです。
- * @function
- * - toObject(): インスタンスをプレーンなオブジェクトに変換して返します。
- * - clone(): インスタンスの複製を返します。
- * - initialize(): インスタンスの各プロパティを与えられたオブジェクトで初期化します。
- *                 引数が与えられなかった場合は各プロパティが classProps.default で初期化されます。
- * - beforeInitialize(): initialize() の最初に実行されるフックです。
- * - afterInitialize(): initialize() の最後に実行されるフックです。
+ *
+ * @getter {Array} schema - classProps に定義されたプロパティ定義情報を配列にして返します。
+ *
+ * @function toObject - インスタンスをプレーンなオブジェクトに変換して返します。
+ * @function clone - インスタンスの複製を返します。
+ * @function initialize - インスタンスの各プロパティを与えられたオブジェクトで初期化します。
+ *                        引数が与えられなかった場合は各プロパティが classProps.default で初期化されます。
+ * @function beforeInitialize - initialize() の最初に実行されるフックです。
+ * @function afterInitialize - initialize() の最後に実行されるフックです。
+ *
+ * NOTE: `_outputErrorConsole` メソッドは ClientAdapter のみで使用されているが、ここに実装する必要なしと判断。
+ *       将来的に ClientAdapter 側で独自実装することを検討。
  */
+import { generateTokenMap } from "./utils/tokenMap.js";
+
 export class BaseClass {
   /**
    * クラス名
@@ -72,19 +77,89 @@ export class BaseClass {
     Object.defineProperty(this, "tokenMap", {
       enumerable: true,
       configurable: true,
-      get: () => generateTokenMap(this.constructor.tokenFields, this),
-      set: (v) => {
-        /** No-op */
+
+      // 2025-12-30 - 修正: アロー関数ではなく通常の関数として定義し、this バインディングを正しく設定
+      // get: () => generateTokenMap(this.constructor.tokenFields, this),
+      get() {
+        return generateTokenMap(this.constructor.tokenFields, this);
       },
+
+      // 2025-12-30 - 修正: No-op の set をアロー関数から通常の関数に変更
+      // set: (v) => {
+      //   /** No-op */
+      // },
+      set() {},
     });
   }
 
+  /**
+   * `initialize` メソッドで呼び出され、`classProps` に定義されたプロパティをインスタンスに実装し、`default` 値で初期化します。
+   * - `classProps` に定義されていてインスタンスに実装されていないプロパティが存在すれば、ここで実装されます。
+   *
+   * NOTE: このメソッドでは `classProps` に定義された既存プロパティを一度削除してから再作成します。
+   *
+   * 理由: 継承先クラスで、何らかの副作用を持つ計算プロパティ（getter/setter）が同名で実装された場合、
+   *       その副作用はインスタンス初期化後に発生するべきだからです。
+   *
+   * 例: 売上日が変更されると締日が自動更新される計算プロパティの場合
+   *     1. 初期化時: データから渡された締日をそのまま設定（自動計算は発動させたくない）
+   *     2. 初期化後: 売上日を変更すると締日が自動更新される
+   *     3. ユーザーが締日を手動で変更することも可能
+   *     ※ プロパティを削除せずに初期化すると、手動設定した締日が意図せず上書きされる
+   */
+  _setDefault() {
+    const classProps = this.constructor.classProps || {};
+    Object.keys(classProps).forEach((key) => {
+      const propConfig = classProps[key];
+      const defaultValue = propConfig.default;
+
+      // 既存のプロパティ定義を削除
+      delete this[key];
+
+      // デフォルト値で再設定
+      this[key] =
+        typeof defaultValue === "function" ? defaultValue() : defaultValue;
+    });
+  }
+
+  /**
+   * `classProps` に定義されたプロパティをクラスに実装後、`data` で与えられたオブジェクトで
+   * 初期化する直前に呼び出されるフックメソッドです。
+   * - デフォルト実装は何もしません。サブクラスでオーバーライドして利用します。
+   * - 初期化処理が完了する前に何らかの処理を強制するためのものであるため
+   *   余程特殊な処理でない限り、ここでプロパティの初期化を行うべきではありません。
+   * @param {Object} data
+   */
   beforeInitialize(data) {}
+
+  /**
+   * `classProps` に定義されたプロパティがクラスに実装され、`data` で与えられたオブジェクトで
+   * 初期化された直後に呼び出されるフックメソッドです。
+   * - デフォルト実装は何もしません。サブクラスでオーバーライドして利用します。
+   * - 初期化処理が完了した後に何らかの処理を強制するためのもので、クラス特有の計算プロパティなどを
+   *   設定する際に使用します。
+   * @param {Object} data
+   */
   afterInitialize(data) {}
 
+  /**
+   * インスタンスの各プロパティを `data` で与えられたオブジェクトで初期化します。
+   * - `_setDefault()` が呼び出され、`data` が与えられなかった場合は `classProps` に定義された
+   *   `default` 値で初期化されます。
+   * - `beforeInitialize` と `afterInitialize` フックメソッドが呼び出されます。
+   * - 初期化直後の状態が `_beforeData` プロパティとして保存されます。
+   * @param {Object} data
+   */
   initialize(data = {}) {
+    // プロパティを初期化
+    // - 既存プロパティは一度削除されて再作成される。
+    // - data が与えられなかった場合は default 値で初期化される。
     this._setDefault();
+
+    // 初期化前のフックを呼び出す
     this.beforeInitialize(data);
+
+    // data の内容でプロパティを上書きする関数
     const copyValue = (value, customClass) => {
       if (value == null) return value;
       if (Array.isArray(value)) {
@@ -98,6 +173,8 @@ export class BaseClass {
       if (typeof value === "object") return { ...value };
       return value;
     };
+
+    // data の内容でプロパティを上書き
     if (data) {
       Object.entries(data).forEach(([key, value]) => {
         const classProps = this.constructor.classProps?.[key];
@@ -107,32 +184,19 @@ export class BaseClass {
         }
       });
     }
+
+    // 初期化後のフックを呼び出す
     this.afterInitialize(data);
 
+    // 初期化直後の状態を `_beforeData` プロパティとして保存
     this._beforeData = this.toObject();
-  }
-
-  /**
-   * インスタンスの各プロパティの値を classProps の default で定義されている値に更新します。
-   * - classProps に定義されていてインスタンスに実装されていないプロパティが存在すれば、ここで実装されます。
-   * - 既存のプロパティ（Object.defineProperty で定義されたものを含む）を一度削除してから再設定します。
-   */
-  _setDefault() {
-    const classProps = this.constructor.classProps || {};
-    Object.keys(classProps).forEach((key) => {
-      const propConfig = classProps[key];
-      const defaultValue = propConfig.default;
-      // 既存のプロパティ定義を削除
-      delete this[key];
-      // デフォルト値で再設定
-      this[key] =
-        typeof defaultValue === "function" ? defaultValue() : defaultValue;
-    });
   }
 
   /**
    * Outputs an error message to the console.
    * - Use this method only for unexpected errors.
+   *
+   * NOTE: ClientAdapter でのみ使用されている。要改修。
    * @param {string} funcName
    * @param {Error} err - The error object to log.
    */
