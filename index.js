@@ -1,3 +1,26 @@
+/*****************************************************************************
+ * @class FireModel
+ * @extends BaseClass
+ * @description Firestore ドキュメント用のカスタムクラスとなるベースクラス
+ * - FireModel への CRUD 機能の窓口となります。（実態はアダプター）
+ *
+ * @getter {Array} schema - classProps に定義されたプロパティ定義情報を配列にして返します。
+ * @getter {boolean} isInvalid - クラス特有のエラーが存在するかどうかを返します。
+ * @getter {Array} invalidReasons - クラス特有のエラーコードの配列を返します。
+ *
+ * @function toObject - インスタンスをプレーンなオブジェクトに変換して返します。
+ * @function clone - インスタンスの複製を返します。
+ * @function initialize - インスタンスの各プロパティを与えられたオブジェクトで初期化します。
+ *                        引数が与えられなかった場合は各プロパティが classProps.default で初期化されます。
+ * @function beforeInitialize - initialize() の最初に実行されるフックです。
+ * @function afterInitialize - initialize() の最後に実行されるフックです。
+ *
+ * @static INVALID_REASON - クラス特有のエラーコードを定義するための定数オブジェクトです。
+ * - 継承先のクラスで、クラス特有のエラーコードをこのオブジェクトのプロパティとして定義することができます。
+ * - 例えば、`MISSING_NAME: "MISSING_NAME";` のように定義します。
+ * - 継承先のクラスでは `instance.invalidReasons` や `instance.isInvalid` を使用して、クラス特有のエラーの有無や内容を確認することができます。
+ *
+ *****************************************************************************/
 import { BaseClass } from "./src/BaseClass.js";
 export { BaseClass };
 
@@ -34,7 +57,7 @@ export default class FireModel extends BaseClass {
   static getAdapter() {
     if (!FireModel._adapter) {
       throw new Error(
-        "Firestore adapter is not set. Call FireModel.setAdapter first."
+        "Firestore adapter is not set. Call FireModel.setAdapter first.",
       );
     }
     return FireModel._adapter;
@@ -78,7 +101,7 @@ export default class FireModel extends BaseClass {
       // ドキュメントパスはセグメント数が偶数である必要がある
       if (segments.length % 2 !== 0) {
         throw new Error(
-          `Invalid prefix path: "${newConfig.prefix}". Firestore document paths must have an even number of segments.`
+          `Invalid prefix path: "${newConfig.prefix}". Firestore document paths must have an even number of segments.`,
         );
       }
     }
@@ -133,7 +156,7 @@ export default class FireModel extends BaseClass {
     const segments = effectivePrefix.split("/").filter(Boolean);
     if (segments.length % 2 !== 0) {
       throw new Error(
-        `Invalid prefix path: "${effectivePrefix}". Firestore document paths must have an even number of segments.`
+        `Invalid prefix path: "${effectivePrefix}". Firestore document paths must have an even number of segments.`,
       );
     }
 
@@ -250,7 +273,7 @@ export default class FireModel extends BaseClass {
 
     if (!data) {
       throw new Error(
-        `[FireModel.js] Argument 'snapshot' is not Firestore's valid snapshot.`
+        `[FireModel.js] Argument 'snapshot' is not Firestore's valid snapshot.`,
       );
     }
 
@@ -265,7 +288,7 @@ export default class FireModel extends BaseClass {
         Array.isArray(data[key])
       ) {
         data[key] = data[key].map(
-          (element) => new classProp.customClass(element)
+          (element) => new classProp.customClass(element),
         );
       } else if (
         classProp?.type === Object &&
@@ -300,15 +323,15 @@ export default class FireModel extends BaseClass {
       createdAt instanceof Date
         ? createdAt
         : createdAt?.toDate
-        ? createdAt.toDate()
-        : null;
+          ? createdAt.toDate()
+          : null;
 
     this.updatedAt =
       updatedAt instanceof Date
         ? updatedAt
         : updatedAt?.toDate
-        ? updatedAt.toDate()
-        : null;
+          ? updatedAt.toDate()
+          : null;
   }
 
   /**
@@ -647,7 +670,7 @@ export default class FireModel extends BaseClass {
     const adapter = this.getAdapter();
     if (!adapter.runTransaction) {
       throw new Error(
-        `[FireModel - runTransaction] Adapter does not support runTransaction.`
+        `[FireModel - runTransaction] Adapter does not support runTransaction.`,
       );
     }
     return await adapter.runTransaction(updateFunction);

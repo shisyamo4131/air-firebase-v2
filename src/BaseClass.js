@@ -1,4 +1,5 @@
-/**
+/*****************************************************************************
+ * @class BaseClass
  * @file ./src/BaseClass.js
  * @description FireModel のベースとなるクラスです。
  * - FireModel のサブクラスで実装されるオブジェクト型プロパティを定義するクラスのベースクラスとしても機能します。
@@ -6,6 +7,8 @@
  *   サブクラスをプロパティに設定するべきです。
  *
  * @getter {Array} schema - classProps に定義されたプロパティ定義情報を配列にして返します。
+ * @getter {boolean} isInvalid - クラス特有のエラーが存在するかどうかを返します。
+ * @getter {Array} invalidReasons - クラス特有のエラーコードの配列を返します。
  *
  * @function toObject - インスタンスをプレーンなオブジェクトに変換して返します。
  * @function clone - インスタンスの複製を返します。
@@ -14,9 +17,14 @@
  * @function beforeInitialize - initialize() の最初に実行されるフックです。
  * @function afterInitialize - initialize() の最後に実行されるフックです。
  *
+ * @static INVALID_REASON - クラス特有のエラーコードを定義するための定数オブジェクトです。
+ * - 継承先のクラスで、クラス特有のエラーコードをこのオブジェクトのプロパティとして定義することができます。
+ * - 例えば、`MISSING_NAME: "MISSING_NAME";` のように定義します。
+ * - 継承先のクラスでは `instance.invalidReasons` や `instance.isInvalid` を使用して、クラス特有のエラーの有無や内容を確認することができます。
+ *
  * NOTE: `_outputErrorConsole` メソッドは ClientAdapter のみで使用されているが、ここに実装する必要なしと判断。
  *       将来的に ClientAdapter 側で独自実装することを検討。
- */
+ *****************************************************************************/
 import { generateTokenMap } from "./utils/tokenMap.js";
 
 export class BaseClass {
@@ -203,7 +211,7 @@ export class BaseClass {
   _outputErrorConsole(funcName, err) {
     console.error(
       `[ClientAdapter.js - ${funcName}] Unknown error has occurred:`,
-      err
+      err,
     );
   }
 
@@ -285,53 +293,9 @@ export class BaseClass {
    * `classProps` に基づいてプロパティの値を検証します。
    * - `required` フィールドの存在確認を行います。
    * - 型の整合性、カスタムバリデータの実行も行われます。
-   *
+   * @return {void}
    * @throws {Error} 必須フィールドの欠落やバリデーション失敗時にスローされます
-   *
-   * @update 2025-12-29 - length validation を追加し、全体的にリファクタリング。
    */
-  // validate() {
-  //   Object.entries(this.constructor.classProps).forEach(([key, config]) => {
-  //     const { type, required, validator } = config;
-
-  //     switch (type) {
-  //       case String:
-  //       case Number:
-  //       case Object: {
-  //         const isValueMissing =
-  //           this[key] === undefined || this[key] === null || this[key] === "";
-  //         if (required && isValueMissing) {
-  //           throw new Error(`${key} is required.`);
-  //         }
-  //         break;
-  //       }
-
-  //       case Array: {
-  //         if (
-  //           required &&
-  //           (!Array.isArray(this[key]) || this[key].length === 0)
-  //         ) {
-  //           throw new Error(`${key} requires one or more elements.`);
-  //         }
-  //         break;
-  //       }
-
-  //       case Boolean:
-  //         // Typically nothing to validate here unless a custom validator is provided.
-  //         break;
-
-  //       default:
-  //         throw new Error(
-  //           `Unknown type is defined at classProps. type: ${config.type}`
-  //         );
-  //     }
-
-  //     // Custom validator check
-  //     if (validator && !validator(this[key])) {
-  //       throw new Error(`Invalid value at ${key}. value: ${this[key]}`);
-  //     }
-  //   });
-  // }
   validate() {
     Object.entries(this.constructor.classProps).forEach(([key, config]) => {
       const { type, required, validator, length, label } = config;
@@ -357,7 +321,7 @@ export class BaseClass {
         if (type === String && typeof value === "string") {
           if (value.length > length) {
             throw new Error(
-              `${fieldLabel} must be ${length} characters or less.`
+              `${fieldLabel} must be ${length} characters or less.`,
             );
           }
         }
@@ -381,5 +345,66 @@ export class BaseClass {
         }
       }
     });
+  }
+
+  /**
+   * INVALID_REASON 定数
+   * - クラス特有のエラーコードを定義するための定数オブジェクトです。
+   * - 継承先のクラスで、クラス特有のエラーコードをこのオブジェクトのプロパティとして定義することができます。
+   * - 例えば、`BaseClass.INVALID_REASON.MISSING_NAME = "MISSING_NAME";` のように定義します。
+   * - 継承先のクラスでは `instance.invalidReasons` や `instance.isInvalid` を使用して、クラス特有のエラーの有無や内容を確認することができます。
+   */
+  static INVALID_REASON = {};
+
+  /**
+   * クラス特有のエラーの有無を返すメソッド
+   * - `classProps` に定義されたプロパティのうち、`validator` 関数が定義されているものを検証し、エラーがあればその内容を配列にして返します。
+   * - エラーが存在しない場合は空の配列を返します。
+   * - 継承先のクラスでオーバーライドして、独自のエラー検証ロジックを実装することもできます。
+   * @returns {Array<string>} エラーコードの配列
+   */
+  getInvalidReasons() {
+    const result = [];
+
+    // classProps に定義されたプロパティのうち、validator 関数が定義されているものを抽出
+    const validatorsInClassProps = Object.values(
+      this.constructor.classProps,
+    ).filter((config) => typeof config.validator === "function");
+
+    // 抽出されたプロパティの validator を実行して、エラーがあれば result に追加
+    validatorsInClassProps.forEach((config) => {
+      const { validator, label } = config;
+      const fieldLabel = label || "Field";
+      try {
+        const validationResult = validator(this[fieldLabel]);
+        if (validationResult !== true) {
+          const message =
+            typeof validationResult === "string"
+              ? validationResult
+              : `Invalid value for ${fieldLabel}.`;
+          result.push(message);
+        }
+      } catch (error) {
+        result.push(`Error validating ${fieldLabel}: ${error.message}`);
+      }
+    });
+    return result;
+  }
+
+  /**
+   * クラス特有のエラーが存在するかどうかを返すゲッター。
+   * @returns {boolean} クラス特有のエラーが存在する場合は true、そうでない場合は false
+   */
+  get isInvalid() {
+    return this.getInvalidReasons().length > 0;
+  }
+
+  /**
+   * クラス特有のエラーコードの配列を返すゲッター。
+   * - エラーが存在しない場合は空の配列を返す。
+   * @returns {Array<string>} クラス特有のエラーコードの配列
+   */
+  get invalidReasons() {
+    return this.getInvalidReasons();
   }
 }
