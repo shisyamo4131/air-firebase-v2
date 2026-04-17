@@ -8,7 +8,8 @@
  *
  * @getter {Array} schema - classProps に定義されたプロパティ定義情報を配列にして返します。
  * @getter {boolean} isInvalid - クラス特有のエラーが存在するかどうかを返します。
- * @getter {Array} invalidReasons - クラス特有のエラーコードの配列を返します。
+ * @getter {Array<string>} invalidReasons - クラス特有のエラーメッセージの配列を返します。
+ * @getter {Array<Object>} detailedInvalidReasons - エラーコード、メッセージ、フィールド名を含む詳細情報の配列を返します。
  *
  * @function toObject - インスタンスをプレーンなオブジェクトに変換して返します。
  * @function clone - インスタンスの複製を返します。
@@ -16,15 +17,21 @@
  *                        引数が与えられなかった場合は各プロパティが classProps.default で初期化されます。
  * @function beforeInitialize - initialize() の最初に実行されるフックです。
  * @function afterInitialize - initialize() の最後に実行されるフックです。
+ * @function validate - classProps に基づいてプロパティの値を検証し、エラーがあればスローします。
  *
  * @static INVALID_REASON - クラス特有のエラーコードを定義するための定数オブジェクトです。
- * - 継承先のクラスで、クラス特有のエラーコードをこのオブジェクトのプロパティとして定義することができます。
- * - 例えば、`MISSING_NAME: "MISSING_NAME";` のように定義します。
- * - 継承先のクラスでは `instance.invalidReasons` や `instance.isInvalid` を使用して、クラス特有のエラーの有無や内容を確認することができます。
+ * - BaseClass では標準的なエラーコード（REQUIRED_ERROR, LENGTH_ERROR など）を定義しています。
+ * - 継承先のクラスで、クラス特有のエラーコードをこのオブジェクトのプロパティとして定義できます。
+ * - 各エラーは { code: string, message: string } の形式で、message には $1, $2 などのプレースホルダーを使用できます。
+ * - 例: `CustomClass.INVALID_REASON.MISSING_NAME = { code: 'MISSING_NAME', message: '$1 is missing.' };`
+ * - 継承先のクラスでは `instance.invalidReasons` や `instance.detailedInvalidReasons` を使用して、
+ *   クラス特有のエラーの有無や内容を確認することができます。
+ *
+ * @static formatErrorMessage - エラーメッセージのプレースホルダーを置換する静的メソッドです。
  *
  * NOTE: `_outputErrorConsole` メソッドは ClientAdapter のみで使用されているが、ここに実装する必要なしと判断。
  *       将来的に ClientAdapter 側で独自実装することを検討。
- *****************************************************************************/
+ ******************************************************************************/
 import { generateTokenMap } from "./utils/tokenMap.js";
 
 export class BaseClass {
@@ -291,12 +298,83 @@ export class BaseClass {
 
   /**
    * `classProps` に基づいてプロパティの値を検証します。
-   * - `required` フィールドの存在確認を行います。
-   * - 型の整合性、カスタムバリデータの実行も行われます。
+   * - `detailedInvalidReasons` を取得し、エラーが存在する場合は改行区切りでスローします。
+   * - required, length, validator のチェックを行います。
    * @return {void}
-   * @throws {Error} 必須フィールドの欠落やバリデーション失敗時にスローされます
+   * @throws {Error} バリデーション失敗時に全エラーを改行区切りでスローします
    */
   validate() {
+    const detailedErrors = this.detailedInvalidReasons;
+    if (detailedErrors.length > 0) {
+      const messages = detailedErrors.map(({ message }) => message);
+      const error = new Error(messages.join("\n"));
+      error.name = "ValidationError";
+      error.validationErrors = detailedErrors;
+      throw error;
+    }
+  }
+
+  /**
+   * INVALID_REASON 定数
+   * - クラス特有のエラーコードを定義するための定数オブジェクトです。
+   * - BaseClass では標準的なエラーコードを定義しています。
+   * - 継承先のクラスで、クラス特有のエラーコードをこのオブジェクトのプロパティとして定義できます。
+   * - 各エラーには code と message プロパティがあり、message には $1, $2 などのプレースホルダーを使用できます。
+   * - 例: `CustomClass.INVALID_REASON.MISSING_NAME = { code: 'MISSING_NAME', message: '$1 is missing.' };`
+   */
+  static INVALID_REASON = {
+    REQUIRED_ERROR: {
+      code: "REQUIRED_ERROR",
+      message: "$1 is required.",
+    },
+    REQUIRED_ARRAY_ERROR: {
+      code: "REQUIRED_ARRAY_ERROR",
+      message: "$1 must have at least one item.",
+    },
+    LENGTH_ERROR: {
+      code: "LENGTH_ERROR",
+      message: "$1 must be $2 characters or less.",
+    },
+    LENGTH_ARRAY_ERROR: {
+      code: "LENGTH_ARRAY_ERROR",
+      message: "$1 must have $2 items or less.",
+    },
+    VALIDATOR_ERROR: {
+      code: "VALIDATOR_ERROR",
+      message: "Invalid value for $1.",
+    },
+  };
+
+  /**
+   * エラーメッセージのプレースホルダーを置換します。
+   * - $1, $2, ... のプレースホルダーを指定された値で置換します。
+   *
+   * @param {Object} reason - エラー理由オブジェクト ({ code, message })
+   * @param {...string} replacements - 置換する値（$1, $2, ...に対応）
+   * @returns {string} 置換後のメッセージ
+   */
+  static formatErrorMessage(reason, ...replacements) {
+    let message = reason.message;
+    replacements.forEach((replacement, index) => {
+      message = message.replace(`$${index + 1}`, String(replacement));
+    });
+    return message;
+  }
+
+  /**
+   * クラスのバリデーションエラーを詳細情報付きで返す内部メソッド
+   * - `classProps` に定義されたプロパティの全バリデーションを実行します。
+   * - required, length, validator のチェックを行い、エラーがあれば詳細情報を配列にして返します。
+   * - エラーが存在しない場合は空の配列を返します。
+   *
+   * @returns {Array<Object>} エラー詳細オブジェクトの配列
+   *   - code: エラーコード
+   *   - message: フォーマット済みエラーメッセージ
+   *   - field: エラーが発生したプロパティのキー名
+   */
+  _getDetailedInvalidReasons() {
+    const result = [];
+
     Object.entries(this.constructor.classProps).forEach(([key, config]) => {
       const { type, required, validator, length, label } = config;
       const value = this[key];
@@ -306,12 +384,26 @@ export class BaseClass {
       if (required) {
         if (type === String || type === Number || type === Object) {
           if (value == null || value === "") {
-            throw new Error(`${fieldLabel} is required.`);
+            result.push({
+              code: this.constructor.INVALID_REASON.REQUIRED_ERROR.code,
+              message: this.constructor.formatErrorMessage(
+                this.constructor.INVALID_REASON.REQUIRED_ERROR,
+                fieldLabel,
+              ),
+              field: key,
+            });
           }
         }
         if (type === Array) {
           if (!Array.isArray(value) || value.length === 0) {
-            throw new Error(`${fieldLabel} must have at least one item.`);
+            result.push({
+              code: this.constructor.INVALID_REASON.REQUIRED_ARRAY_ERROR.code,
+              message: this.constructor.formatErrorMessage(
+                this.constructor.INVALID_REASON.REQUIRED_ARRAY_ERROR,
+                fieldLabel,
+              ),
+              field: key,
+            });
           }
         }
       }
@@ -320,75 +412,73 @@ export class BaseClass {
       if (length != null && value != null) {
         if (type === String && typeof value === "string") {
           if (value.length > length) {
-            throw new Error(
-              `${fieldLabel} must be ${length} characters or less.`,
-            );
+            result.push({
+              code: this.constructor.INVALID_REASON.LENGTH_ERROR.code,
+              message: this.constructor.formatErrorMessage(
+                this.constructor.INVALID_REASON.LENGTH_ERROR,
+                fieldLabel,
+                length,
+              ),
+              field: key,
+            });
           }
         }
         if (type === Array && Array.isArray(value)) {
           if (value.length > length) {
-            throw new Error(`${fieldLabel} must have ${length} items or less.`);
+            result.push({
+              code: this.constructor.INVALID_REASON.LENGTH_ARRAY_ERROR.code,
+              message: this.constructor.formatErrorMessage(
+                this.constructor.INVALID_REASON.LENGTH_ARRAY_ERROR,
+                fieldLabel,
+                length,
+              ),
+              field: key,
+            });
           }
         }
       }
 
       // Custom validator
       if (validator && typeof validator === "function") {
-        const result = validator(value);
-        if (result !== true) {
-          // validator が文字列を返す場合はそれをエラーメッセージとして使用
-          const message =
-            typeof result === "string"
-              ? result
-              : `Invalid value for ${fieldLabel}.`;
-          throw new Error(message);
+        try {
+          const validationResult = validator(value);
+          if (validationResult !== true) {
+            const message =
+              typeof validationResult === "string"
+                ? validationResult
+                : this.constructor.formatErrorMessage(
+                    this.constructor.INVALID_REASON.VALIDATOR_ERROR,
+                    fieldLabel,
+                  );
+            result.push({
+              code: this.constructor.INVALID_REASON.VALIDATOR_ERROR.code,
+              message,
+              field: key,
+            });
+          }
+        } catch (error) {
+          result.push({
+            code: this.constructor.INVALID_REASON.VALIDATOR_ERROR.code,
+            message: `Error validating ${fieldLabel}: ${error.message}`,
+            field: key,
+          });
         }
       }
     });
+
+    return result;
   }
 
   /**
-   * INVALID_REASON 定数
-   * - クラス特有のエラーコードを定義するための定数オブジェクトです。
-   * - 継承先のクラスで、クラス特有のエラーコードをこのオブジェクトのプロパティとして定義することができます。
-   * - 例えば、`BaseClass.INVALID_REASON.MISSING_NAME = "MISSING_NAME";` のように定義します。
-   * - 継承先のクラスでは `instance.invalidReasons` や `instance.isInvalid` を使用して、クラス特有のエラーの有無や内容を確認することができます。
-   */
-  static INVALID_REASON = {};
-
-  /**
-   * クラス特有のエラーの有無を返すメソッド
-   * - `classProps` に定義されたプロパティのうち、`validator` 関数が定義されているものを検証し、エラーがあればその内容を配列にして返します。
+   * クラスのバリデーションエラーメッセージを配列で返す（後方互換性のため）
+   * - `_getDetailedInvalidReasons()` を呼び出し、エラーメッセージのみを抽出して返します。
    * - エラーが存在しない場合は空の配列を返します。
-   * - 継承先のクラスでオーバーライドして、独自のエラー検証ロジックを実装することもできます。
-   * @returns {Array<string>} エラーコードの配列
+   * - 継承先のクラスでオーバーライドして、独自のエラー検証ロジックを追加できます。
+   *
+   * @returns {Array<string>} エラーメッセージの配列
    */
   getInvalidReasons() {
-    const result = [];
-
-    // classProps に定義されたプロパティのうち、validator 関数が定義されているものを抽出
-    const validatorsInClassProps = Object.values(
-      this.constructor.classProps,
-    ).filter((config) => typeof config.validator === "function");
-
-    // 抽出されたプロパティの validator を実行して、エラーがあれば result に追加
-    validatorsInClassProps.forEach((config) => {
-      const { validator, label } = config;
-      const fieldLabel = label || "Field";
-      try {
-        const validationResult = validator(this[fieldLabel]);
-        if (validationResult !== true) {
-          const message =
-            typeof validationResult === "string"
-              ? validationResult
-              : `Invalid value for ${fieldLabel}.`;
-          result.push(message);
-        }
-      } catch (error) {
-        result.push(`Error validating ${fieldLabel}: ${error.message}`);
-      }
-    });
-    return result;
+    return this._getDetailedInvalidReasons().map((error) => error.message);
   }
 
   /**
@@ -400,11 +490,26 @@ export class BaseClass {
   }
 
   /**
-   * クラス特有のエラーコードの配列を返すゲッター。
+   * クラス特有のエラーメッセージの配列を返すゲッター（後方互換性のため）。
    * - エラーが存在しない場合は空の配列を返す。
-   * @returns {Array<string>} クラス特有のエラーコードの配列
+   * @returns {Array<string>} クラス特有のエラーメッセージの配列
    */
   get invalidReasons() {
     return this.getInvalidReasons();
+  }
+
+  /**
+   * クラスのバリデーションエラーを詳細情報付きで返すゲッター。
+   * - エラーコード、メッセージ、フィールド名を含むオブジェクトの配列を返します。
+   * - 多言語対応やUI側でのエラーコードに応じた処理に利用できます。
+   * - エラーが存在しない場合は空の配列を返す。
+   *
+   * @returns {Array<Object>} エラー詳細オブジェクトの配列
+   *   - code: エラーコード
+   *   - message: フォーマット済みエラーメッセージ
+   *   - field: エラーが発生したプロパティのキー名
+   */
+  get detailedInvalidReasons() {
+    return this._getDetailedInvalidReasons();
   }
 }
