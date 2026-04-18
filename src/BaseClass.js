@@ -18,15 +18,13 @@
  * @function afterInitialize - initialize() の最後に実行されるフックです。
  * @function validate - classProps に基づいてプロパティの値を検証し、エラーがあればスローします。
  *
- * @static INVALID_REASON - クラス特有のエラーコードを定義するための定数オブジェクトです。
+ * @static INVALID_REASON - クラス特有のエラーコードを定義するための関数オブジェクトです。
  * - BaseClass では標準的なエラーコード（REQUIRED_ERROR, LENGTH_ERROR など）を定義しています。
  * - 継承先のクラスで、クラス特有のエラーコードをこのオブジェクトのプロパティとして定義できます。
- * - 各エラーは { code: string, message: string } の形式で、message には $1, $2 などのプレースホルダーを使用できます。
- * - 例: `CustomClass.INVALID_REASON.MISSING_NAME = { code: 'MISSING_NAME', message: '$1 is missing.' };`
+ * - 各エラーは関数形式で、{code, message, messages} オブジェクトを返します。
+ * - 例: `CustomClass.INVALID_REASON.MISSING_NAME = (field) => ({ code: 'MISSING_NAME', message: `${field} is missing.`, messages: {ja: `${field}は必須です。`} });`
  * - 継承先のクラスでは `instance.invalidReasons` を使用して、
  *   クラス特有のエラーの有無や内容を確認することができます。
- *
- * @static formatErrorMessage - エラーメッセージのプレースホルダーを置換する静的メソッドです。
  *
  * NOTE: `_outputErrorConsole` メソッドは ClientAdapter のみで使用されているが、ここに実装する必要なしと判断。
  *       将来的に ClientAdapter 側で独自実装することを検討。
@@ -315,50 +313,49 @@ export class BaseClass {
 
   /**
    * INVALID_REASON 定数
-   * - クラス特有のエラーコードを定義するための定数オブジェクトです。
+   * - クラス特有のエラーコードを定義するための関数オブジェクトです。
    * - BaseClass では標準的なエラーコードを定義しています。
    * - 継承先のクラスで、クラス特有のエラーコードをこのオブジェクトのプロパティとして定義できます。
-   * - 各エラーには code と message プロパティがあり、message には $1, $2 などのプレースホルダーを使用できます。
-   * - 例: `CustomClass.INVALID_REASON.MISSING_NAME = { code: 'MISSING_NAME', message: '$1 is missing.' };`
+   * - 各エラー関数は {code, message, messages} オブジェクトを返します。
+   * - 例: `CustomClass.INVALID_REASON.MISSING_NAME = (field) => ({ code: 'MISSING_NAME', message: `${field} is missing.`, messages: {ja: `${field}は必須です。`} });`
    */
   static INVALID_REASON = {
-    REQUIRED_ERROR: {
+    REQUIRED_ERROR: (fieldLabel) => ({
       code: "REQUIRED_ERROR",
-      message: "$1 is required.",
-    },
-    REQUIRED_ARRAY_ERROR: {
+      message: `${fieldLabel} is required.`,
+      messages: {
+        ja: `${fieldLabel}は必須です。`,
+      },
+    }),
+    REQUIRED_ARRAY_ERROR: (fieldLabel) => ({
       code: "REQUIRED_ARRAY_ERROR",
-      message: "$1 must have at least one item.",
-    },
-    LENGTH_ERROR: {
+      message: `${fieldLabel} must have at least one item.`,
+      messages: {
+        ja: `${fieldLabel}には少なくとも1つの項目が必要です。`,
+      },
+    }),
+    LENGTH_ERROR: (fieldLabel, length) => ({
       code: "LENGTH_ERROR",
-      message: "$1 must be $2 characters or less.",
-    },
-    LENGTH_ARRAY_ERROR: {
+      message: `${fieldLabel} must be ${length} characters or less.`,
+      messages: {
+        ja: `${fieldLabel}は${length}文字以内である必要があります。`,
+      },
+    }),
+    LENGTH_ARRAY_ERROR: (fieldLabel, length) => ({
       code: "LENGTH_ARRAY_ERROR",
-      message: "$1 must have $2 items or less.",
-    },
-    VALIDATOR_ERROR: {
+      message: `${fieldLabel} must have ${length} items or less.`,
+      messages: {
+        ja: `${fieldLabel}は${length}個以内である必要があります。`,
+      },
+    }),
+    VALIDATOR_ERROR: (fieldLabel) => ({
       code: "VALIDATOR_ERROR",
-      message: "Invalid value for $1.",
-    },
+      message: `Invalid value for ${fieldLabel}.`,
+      messages: {
+        ja: `${fieldLabel}の値が不正です。`,
+      },
+    }),
   };
-
-  /**
-   * エラーメッセージのプレースホルダーを置換します。
-   * - $1, $2, ... のプレースホルダーを指定された値で置換します。
-   *
-   * @param {Object} reason - エラー理由オブジェクト ({ code, message })
-   * @param {...string} replacements - 置換する値（$1, $2, ...に対応）
-   * @returns {string} 置換後のメッセージ
-   */
-  static formatErrorMessage(reason, ...replacements) {
-    let message = reason.message;
-    replacements.forEach((replacement, index) => {
-      message = message.replace(`$${index + 1}`, String(replacement));
-    });
-    return message;
-  }
 
   /**
    * クラスのバリデーションエラーを詳細情報付きで返す内部メソッド
@@ -394,12 +391,7 @@ export class BaseClass {
         if (type === String || type === Number || type === Object) {
           if (value == null || value === "") {
             result.push({
-              code: this.constructor.INVALID_REASON.REQUIRED_ERROR.code,
-              message: this.constructor.formatErrorMessage(
-                this.constructor.INVALID_REASON.REQUIRED_ERROR,
-                fieldLabel,
-              ),
-              messages: {},
+              ...this.constructor.INVALID_REASON.REQUIRED_ERROR(fieldLabel),
               field: key,
             });
           }
@@ -407,12 +399,9 @@ export class BaseClass {
         if (type === Array) {
           if (!Array.isArray(value) || value.length === 0) {
             result.push({
-              code: this.constructor.INVALID_REASON.REQUIRED_ARRAY_ERROR.code,
-              message: this.constructor.formatErrorMessage(
-                this.constructor.INVALID_REASON.REQUIRED_ARRAY_ERROR,
+              ...this.constructor.INVALID_REASON.REQUIRED_ARRAY_ERROR(
                 fieldLabel,
               ),
-              messages: {},
               field: key,
             });
           }
@@ -424,13 +413,10 @@ export class BaseClass {
         if (type === String && typeof value === "string") {
           if (value.length > length) {
             result.push({
-              code: this.constructor.INVALID_REASON.LENGTH_ERROR.code,
-              message: this.constructor.formatErrorMessage(
-                this.constructor.INVALID_REASON.LENGTH_ERROR,
+              ...this.constructor.INVALID_REASON.LENGTH_ERROR(
                 fieldLabel,
                 length,
               ),
-              messages: {},
               field: key,
             });
           }
@@ -438,13 +424,10 @@ export class BaseClass {
         if (type === Array && Array.isArray(value)) {
           if (value.length > length) {
             result.push({
-              code: this.constructor.INVALID_REASON.LENGTH_ARRAY_ERROR.code,
-              message: this.constructor.formatErrorMessage(
-                this.constructor.INVALID_REASON.LENGTH_ARRAY_ERROR,
+              ...this.constructor.INVALID_REASON.LENGTH_ARRAY_ERROR(
                 fieldLabel,
                 length,
               ),
-              messages: {},
               field: key,
             });
           }
@@ -461,47 +444,35 @@ export class BaseClass {
               typeof validationResult === "object" &&
               validationResult !== null
             ) {
+              const defaultError =
+                this.constructor.INVALID_REASON.VALIDATOR_ERROR(fieldLabel);
               result.push({
-                code:
-                  validationResult.code ||
-                  this.constructor.INVALID_REASON.VALIDATOR_ERROR.code,
-                message:
-                  validationResult.message ||
-                  this.constructor.formatErrorMessage(
-                    this.constructor.INVALID_REASON.VALIDATOR_ERROR,
-                    fieldLabel,
-                  ),
-                messages: validationResult.messages || {},
+                code: validationResult.code || defaultError.code,
+                message: validationResult.message || defaultError.message,
+                messages: validationResult.messages || defaultError.messages,
                 field: key,
               });
             }
             // パターン2: 文字列
             else if (typeof validationResult === "string") {
               result.push({
-                code: this.constructor.INVALID_REASON.VALIDATOR_ERROR.code,
+                ...this.constructor.INVALID_REASON.VALIDATOR_ERROR(fieldLabel),
                 message: validationResult,
-                messages: {},
                 field: key,
               });
             }
             // パターン3: false or undefined
             else {
               result.push({
-                code: this.constructor.INVALID_REASON.VALIDATOR_ERROR.code,
-                message: this.constructor.formatErrorMessage(
-                  this.constructor.INVALID_REASON.VALIDATOR_ERROR,
-                  fieldLabel,
-                ),
-                messages: {},
+                ...this.constructor.INVALID_REASON.VALIDATOR_ERROR(fieldLabel),
                 field: key,
               });
             }
           }
         } catch (error) {
           result.push({
-            code: this.constructor.INVALID_REASON.VALIDATOR_ERROR.code,
+            ...this.constructor.INVALID_REASON.VALIDATOR_ERROR(fieldLabel),
             message: `Error validating ${fieldLabel}: ${error.message}`,
-            messages: {},
             field: key,
           });
         }
