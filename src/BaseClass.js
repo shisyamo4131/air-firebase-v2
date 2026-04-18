@@ -8,8 +8,7 @@
  *
  * @getter {Array} schema - classProps に定義されたプロパティ定義情報を配列にして返します。
  * @getter {boolean} isInvalid - クラス特有のエラーが存在するかどうかを返します。
- * @getter {Array<string>} invalidReasons - クラス特有のエラーメッセージの配列を返します。
- * @getter {Array<Object>} detailedInvalidReasons - エラーコード、メッセージ、フィールド名を含む詳細情報の配列を返します。
+ * @getter {Array<Object>} invalidReasons - エラーコード、メッセージ、多言語メッセージ、フィールド名を含む詳細情報の配列を返します。
  *
  * @function toObject - インスタンスをプレーンなオブジェクトに変換して返します。
  * @function clone - インスタンスの複製を返します。
@@ -24,7 +23,7 @@
  * - 継承先のクラスで、クラス特有のエラーコードをこのオブジェクトのプロパティとして定義できます。
  * - 各エラーは { code: string, message: string } の形式で、message には $1, $2 などのプレースホルダーを使用できます。
  * - 例: `CustomClass.INVALID_REASON.MISSING_NAME = { code: 'MISSING_NAME', message: '$1 is missing.' };`
- * - 継承先のクラスでは `instance.invalidReasons` や `instance.detailedInvalidReasons` を使用して、
+ * - 継承先のクラスでは `instance.invalidReasons` を使用して、
  *   クラス特有のエラーの有無や内容を確認することができます。
  *
  * @static formatErrorMessage - エラーメッセージのプレースホルダーを置換する静的メソッドです。
@@ -298,13 +297,13 @@ export class BaseClass {
 
   /**
    * `classProps` に基づいてプロパティの値を検証します。
-   * - `detailedInvalidReasons` を取得し、エラーが存在する場合は改行区切りでスローします。
+   * - `invalidReasons` を取得し、エラーが存在する場合は改行区切りでスローします。
    * - required, length, validator のチェックを行います。
    * @return {void}
    * @throws {Error} バリデーション失敗時に全エラーを改行区切りでスローします
    */
   validate() {
-    const detailedErrors = this.detailedInvalidReasons;
+    const detailedErrors = this.invalidReasons;
     if (detailedErrors.length > 0) {
       const messages = detailedErrors.map(({ message }) => message);
       const error = new Error(messages.join("\n"));
@@ -367,12 +366,22 @@ export class BaseClass {
    * - required, length, validator のチェックを行い、エラーがあれば詳細情報を配列にして返します。
    * - エラーが存在しない場合は空の配列を返します。
    *
-   * @returns {Array<Object>} エラー詳細オブジェクトの配列
+   * validator の返却値パターン:
+   * - true: バリデーション成功
+   * - false: バリデーション失敗（デフォルトメッセージを使用）
+   * - string: バリデーション失敗（カスタムメッセージを使用）
+   * - object: バリデーション失敗（多言語対応）
+   *   - code: エラーコード（省略時は VALIDATOR_ERROR）
+   *   - message: 英語のエラーメッセージ（デフォルト言語、省略時はデフォルトメッセージ）
+   *   - messages: その他の言語のメッセージ（例: {ja: '日本語メッセージ'}）
+   *
+   * @returns {Array<Object>} エラー詳細オブジェクトの配列（統一フォーマット）
    *   - code: エラーコード
-   *   - message: フォーマット済みエラーメッセージ
+   *   - message: 英語のエラーメッセージ（デフォルト言語）
+   *   - messages: その他の言語のメッセージオブジェクト（例: {ja: '日本語'}）
    *   - field: エラーが発生したプロパティのキー名
    */
-  _getDetailedInvalidReasons() {
+  _getInvalidReasons() {
     const result = [];
 
     Object.entries(this.constructor.classProps).forEach(([key, config]) => {
@@ -390,6 +399,7 @@ export class BaseClass {
                 this.constructor.INVALID_REASON.REQUIRED_ERROR,
                 fieldLabel,
               ),
+              messages: {},
               field: key,
             });
           }
@@ -402,6 +412,7 @@ export class BaseClass {
                 this.constructor.INVALID_REASON.REQUIRED_ARRAY_ERROR,
                 fieldLabel,
               ),
+              messages: {},
               field: key,
             });
           }
@@ -419,6 +430,7 @@ export class BaseClass {
                 fieldLabel,
                 length,
               ),
+              messages: {},
               field: key,
             });
           }
@@ -432,6 +444,7 @@ export class BaseClass {
                 fieldLabel,
                 length,
               ),
+              messages: {},
               field: key,
             });
           }
@@ -443,23 +456,52 @@ export class BaseClass {
         try {
           const validationResult = validator(value);
           if (validationResult !== true) {
-            const message =
-              typeof validationResult === "string"
-                ? validationResult
-                : this.constructor.formatErrorMessage(
+            // パターン1: オブジェクト {code, message, messages}
+            if (
+              typeof validationResult === "object" &&
+              validationResult !== null
+            ) {
+              result.push({
+                code:
+                  validationResult.code ||
+                  this.constructor.INVALID_REASON.VALIDATOR_ERROR.code,
+                message:
+                  validationResult.message ||
+                  this.constructor.formatErrorMessage(
                     this.constructor.INVALID_REASON.VALIDATOR_ERROR,
                     fieldLabel,
-                  );
-            result.push({
-              code: this.constructor.INVALID_REASON.VALIDATOR_ERROR.code,
-              message,
-              field: key,
-            });
+                  ),
+                messages: validationResult.messages || {},
+                field: key,
+              });
+            }
+            // パターン2: 文字列
+            else if (typeof validationResult === "string") {
+              result.push({
+                code: this.constructor.INVALID_REASON.VALIDATOR_ERROR.code,
+                message: validationResult,
+                messages: {},
+                field: key,
+              });
+            }
+            // パターン3: false or undefined
+            else {
+              result.push({
+                code: this.constructor.INVALID_REASON.VALIDATOR_ERROR.code,
+                message: this.constructor.formatErrorMessage(
+                  this.constructor.INVALID_REASON.VALIDATOR_ERROR,
+                  fieldLabel,
+                ),
+                messages: {},
+                field: key,
+              });
+            }
           }
         } catch (error) {
           result.push({
             code: this.constructor.INVALID_REASON.VALIDATOR_ERROR.code,
             message: `Error validating ${fieldLabel}: ${error.message}`,
+            messages: {},
             field: key,
           });
         }
@@ -470,46 +512,35 @@ export class BaseClass {
   }
 
   /**
-   * クラスのバリデーションエラーメッセージを配列で返す（後方互換性のため）
-   * - `_getDetailedInvalidReasons()` を呼び出し、エラーメッセージのみを抽出して返します。
-   * - エラーが存在しない場合は空の配列を返します。
-   * - 継承先のクラスでオーバーライドして、独自のエラー検証ロジックを追加できます。
-   *
-   * @returns {Array<string>} エラーメッセージの配列
-   */
-  getInvalidReasons() {
-    return this._getDetailedInvalidReasons().map((error) => error.message);
-  }
-
-  /**
    * クラス特有のエラーが存在するかどうかを返すゲッター。
    * @returns {boolean} クラス特有のエラーが存在する場合は true、そうでない場合は false
    */
   get isInvalid() {
-    return this.getInvalidReasons().length > 0;
-  }
-
-  /**
-   * クラス特有のエラーメッセージの配列を返すゲッター（後方互換性のため）。
-   * - エラーが存在しない場合は空の配列を返す。
-   * @returns {Array<string>} クラス特有のエラーメッセージの配列
-   */
-  get invalidReasons() {
-    return this.getInvalidReasons();
+    return this.invalidReasons.length > 0;
   }
 
   /**
    * クラスのバリデーションエラーを詳細情報付きで返すゲッター。
-   * - エラーコード、メッセージ、フィールド名を含むオブジェクトの配列を返します。
+   * - エラーコード、メッセージ、多言語メッセージ、フィールド名を含むオブジェクトの配列を返します。
    * - 多言語対応やUI側でのエラーコードに応じた処理に利用できます。
    * - エラーが存在しない場合は空の配列を返す。
    *
-   * @returns {Array<Object>} エラー詳細オブジェクトの配列
+   * UI層での使用例:
+   * ```javascript
+   * const locale = user.language; // 'ja', 'en' など
+   * instance.invalidReasons.forEach(error => {
+   *   const displayMessage = error.messages[locale] || error.message;
+   *   console.log(displayMessage);
+   * });
+   * ```
+   *
+   * @returns {Array<Object>} エラー詳細オブジェクトの配列（統一フォーマット）
    *   - code: エラーコード
-   *   - message: フォーマット済みエラーメッセージ
+   *   - message: 英語のエラーメッセージ（デフォルト言語）
+   *   - messages: その他の言語のメッセージオブジェクト（例: {ja: '日本語'}）
    *   - field: エラーが発生したプロパティのキー名
    */
-  get detailedInvalidReasons() {
-    return this._getDetailedInvalidReasons();
+  get invalidReasons() {
+    return this._getInvalidReasons();
   }
 }
