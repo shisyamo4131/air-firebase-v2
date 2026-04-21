@@ -437,7 +437,7 @@ export class BaseClass {
       // Custom validator
       if (validator && typeof validator === "function") {
         try {
-          const validationResult = validator(value);
+          const validationResult = validator(value, this);
           if (validationResult !== true) {
             // パターン1: オブジェクト {code, message, messages}
             if (
