@@ -134,6 +134,33 @@ export default class FireModel extends BaseClass {
   static usePrefix = true;
 
   /**
+   * 有効な prefix を解決して返します。
+   * - `prefix` 引数 → `config.prefix` → "" の順で優先されます。
+   * - prefix がスラッシュで終わっていない場合、自動的に追加されます。
+   * - セグメント数が奇数の prefix は Firestore のドキュメントパスとして無効です。
+   *
+   * @param {string|null} prefix - パスプレフィックス（省略可能）
+   * @returns {string} 有効な prefix（末尾にスラッシュ付き、またはパス空文字列）
+   * @throws {Error} 無効な prefix（奇数セグメント）である場合
+   */
+  static getEffectivePrefix(prefix = null) {
+    let effectivePrefix = prefix || this.config?.prefix || "";
+
+    if (effectivePrefix && !effectivePrefix.endsWith("/")) {
+      effectivePrefix += "/";
+    }
+
+    const segments = effectivePrefix.split("/").filter(Boolean);
+    if (segments.length > 0 && segments.length % 2 !== 0) {
+      throw new Error(
+        `Invalid prefix path: "${effectivePrefix}". Firestore document paths must have an even number of segments.`,
+      );
+    }
+
+    return effectivePrefix;
+  }
+
+  /**
    * Firestore のコレクションパスを取得します。
    * - `prefix` → `config.prefix` → "" の順で優先されます。
    * - `prefix` がスラッシュで終わっていない場合、自動的に追加されます。
@@ -147,19 +174,8 @@ export default class FireModel extends BaseClass {
   static getCollectionPath(prefix = null) {
     if (!this.usePrefix) return this.collectionPath;
 
-    let effectivePrefix = prefix || this.config?.prefix || "";
-
-    if (effectivePrefix && !effectivePrefix.endsWith("/")) {
-      effectivePrefix += "/";
-    }
-
+    const effectivePrefix = this.getEffectivePrefix(prefix);
     const segments = effectivePrefix.split("/").filter(Boolean);
-    if (segments.length % 2 !== 0) {
-      throw new Error(
-        `Invalid prefix path: "${effectivePrefix}". Firestore document paths must have an even number of segments.`,
-      );
-    }
-
     const collectionPath = this.collectionPath;
 
     if (segments[0] === collectionPath) {
